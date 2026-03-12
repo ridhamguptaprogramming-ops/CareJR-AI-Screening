@@ -72,6 +72,34 @@
 
       <div class="split-grid">
         <div>
+          <label for="pincode">Pincode</label>
+          <input
+            type="text"
+            id="pincode"
+            placeholder="6-digit pincode"
+            maxlength="6"
+            pattern="[0-9]{6}"
+            inputmode="numeric"
+            aria-label="Pincode"
+            autocomplete="postal-code"
+            required
+          >
+        </div>
+        <div>
+          <label for="address">Address</label>
+          <input
+            type="text"
+            id="address"
+            placeholder="Street / Locality"
+            aria-label="Address"
+            autocomplete="street-address"
+            required
+          >
+        </div>
+      </div>
+
+      <div class="split-grid">
+        <div>
           <label for="bloodGroup">Blood Group</label>
           <select id="bloodGroup" aria-label="Blood Group">
             <option value="">Select Blood Group</option>

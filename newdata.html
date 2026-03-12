@@ -136,6 +136,18 @@
           <label for="bmi">BMI</label>
           <input id="bmi" type="text" placeholder="Auto-calculated" aria-label="Body Mass Index" readonly>
         </div>
+        <div>
+          <label for="pulseRate">Pulse Rate (BPM)</label>
+          <input id="pulseRate" type="number" min="30" max="220" placeholder="78" aria-label="Pulse Rate">
+        </div>
+        <div>
+          <label for="respRate">Respiratory Rate (/min)</label>
+          <input id="respRate" type="number" min="5" max="60" placeholder="16" aria-label="Respiratory Rate">
+        </div>
+        <div>
+          <label for="bloodSugar">Blood Sugar (mg/dL)</label>
+          <input id="bloodSugar" type="number" min="20" max="600" placeholder="110" aria-label="Blood Sugar">
+        </div>
       </div>
 
       <div class="split-grid">
@@ -202,6 +214,15 @@
       >
 
       <h3>Risk Assessment: <span id="risk" role="status">0</span>% (<span id="riskLevel">Low</span>)</h3>
+
+      <label for="triageRecommendation">AI Triage Recommendation</label>
+      <input
+        id="triageRecommendation"
+        type="text"
+        placeholder="Auto-generated from risk and vitals"
+        aria-label="Triage Recommendation"
+        readonly
+      >
 
       <div class="button-group">
         <button type="button" class="btn-primary" onclick="generateReport()">Generate Report</button>

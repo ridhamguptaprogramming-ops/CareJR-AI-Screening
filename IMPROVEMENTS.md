@@ -1,4 +1,4 @@
-# CareJR AI Screening - UI and Feature Improvements (v5)
+# CareJR AI Screening - UI and Feature Improvements (v6)
 
 ## Updated Files
 - `login.html`
@@ -21,6 +21,8 @@
 ### Added new fields
 - **Gender** (`gender`)
 - **City** (`city`)
+- **Pincode** (`pincode`)
+- **Address** (`address`)
 - **Blood Group** (`bloodGroup`)
 - **Emergency Contact** (`emergencyContact`)
 
@@ -45,6 +47,7 @@
 - Emergency cases
 - Reports Today
 - Follow-up Due
+- AI Emergency Flag
 - Existing risk counters retained and updated.
 
 ### Metric logic
@@ -62,10 +65,14 @@
   - Weight
   - Height
   - BMI (auto-calculated)
+  - Pulse Rate
+  - Respiratory Rate
+  - Blood Sugar
   - BP Systolic
   - BP Diastolic
 - Provisional Diagnosis
 - Care Plan / Advice
+- AI Triage Recommendation
 
 ### Validation and behavior updates
 - Follow-up date must be on/after visit date.
@@ -107,8 +114,9 @@
 - Age calculation utility from DOB.
 - Profile hydration extended for all new fields.
 - AI analysis source now includes chief complaint and allergy text.
+- AI triage engine added using risk + vitals.
 - Filter/search/sort logic expanded for new fields and priority mode.
-- Dashboard stats expanded with priority counts.
+- Dashboard stats expanded with priority + triage counts.
 
 ## 7. Styling Improvements (`styles.css`)
 ### Added layout support for new UI sections

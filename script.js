@@ -9,6 +9,8 @@ const STORAGE_KEYS = {
   BLOOD_GROUP: "bloodGroup",
   STATE: "state",
   CITY: "city",
+  PINCODE: "pincode",
+  ADDRESS: "address",
   EMERGENCY_CONTACT: "emergencyContact",
   CURRENT_REPORT: "currentReport",
   REPORTS: "reports",
@@ -143,6 +145,65 @@ function updateBMIField() {
   bmiInput.value = calculateBMI(weightInput.value, heightInput.value);
 }
 
+function recommendTriageLevel(data) {
+  const risk = Number(data.risk) || 0;
+  const spo2 = Number(data.spo2) || 0;
+  const pulseRate = Number(data.pulseRate) || 0;
+  const respRate = Number(data.respRate) || 0;
+  const bpSystolic = Number(data.bpSystolic) || 0;
+  const temperature = Number(data.temperature) || 0;
+  const bloodSugar = Number(data.bloodSugar) || 0;
+
+  if (
+    risk >= 80 ||
+    (spo2 > 0 && spo2 < 92) ||
+    bpSystolic >= 180 ||
+    (pulseRate > 0 && (pulseRate >= 130 || pulseRate < 40)) ||
+    (respRate > 0 && (respRate >= 30 || respRate < 8))
+  ) {
+    return "Emergency";
+  }
+
+  if (
+    risk >= 60 ||
+    (temperature > 0 && temperature >= 101) ||
+    (spo2 > 0 && spo2 < 95) ||
+    bpSystolic >= 160 ||
+    (bloodSugar > 0 && (bloodSugar >= 250 || bloodSugar < 70)) ||
+    (pulseRate > 0 && pulseRate > 110) ||
+    (respRate > 0 && respRate > 24)
+  ) {
+    return "Urgent";
+  }
+
+  return "Routine";
+}
+
+function updateTriageRecommendationField() {
+  const triageInput = byId("triageRecommendation");
+  if (!triageInput) {
+    return;
+  }
+
+  const risk = byId("risk");
+  const temperature = byId("temperature");
+  const spo2 = byId("spo2");
+  const pulseRate = byId("pulseRate");
+  const respRate = byId("respRate");
+  const bpSystolic = byId("bpSystolic");
+  const bloodSugar = byId("bloodSugar");
+
+  triageInput.value = recommendTriageLevel({
+    risk: risk ? risk.innerText : 0,
+    temperature: temperature ? temperature.value : "",
+    spo2: spo2 ? spo2.value : "",
+    pulseRate: pulseRate ? pulseRate.value : "",
+    respRate: respRate ? respRate.value : "",
+    bpSystolic: bpSystolic ? bpSystolic.value : "",
+    bloodSugar: bloodSugar ? bloodSugar.value : ""
+  });
+}
+
 function applyDateLimits() {
   const today = new Date().toISOString().split("T")[0];
 
@@ -198,6 +259,13 @@ function setupFormHandlers() {
     emergencyContact.addEventListener("input", normalizePhoneInput);
   }
 
+  const pincodeInput = byId("pincode");
+  if (pincodeInput && pincodeInput.tagName === "INPUT") {
+    pincodeInput.addEventListener("input", (event) => {
+      event.target.value = event.target.value.replace(/\D/g, "").slice(0, 6);
+    });
+  }
+
   const otpInput = byId("otp");
   if (otpInput) {
     otpInput.addEventListener("input", (event) => {
@@ -238,6 +306,21 @@ function setupFormHandlers() {
     weightInput.addEventListener("input", updateBMIField);
     heightInput.addEventListener("input", updateBMIField);
   }
+
+  [
+    "temperature",
+    "spo2",
+    "pulseRate",
+    "respRate",
+    "bpSystolic",
+    "bpDiastolic",
+    "bloodSugar"
+  ].forEach((id) => {
+    const input = byId(id);
+    if (input) {
+      input.addEventListener("input", updateTriageRecommendationField);
+    }
+  });
 }
 
 function hydrateSharedData() {
@@ -274,6 +357,16 @@ function hydrateSharedData() {
   const cityInput = byId("city");
   if (cityInput && cityInput.tagName === "INPUT" && !cityInput.value) {
     cityInput.value = localStorage.getItem(STORAGE_KEYS.CITY) || "";
+  }
+
+  const pincodeInput = byId("pincode");
+  if (pincodeInput && pincodeInput.tagName === "INPUT" && !pincodeInput.value) {
+    pincodeInput.value = localStorage.getItem(STORAGE_KEYS.PINCODE) || "";
+  }
+
+  const addressInput = byId("address");
+  if (addressInput && addressInput.tagName === "INPUT" && !addressInput.value) {
+    addressInput.value = localStorage.getItem(STORAGE_KEYS.ADDRESS) || "";
   }
 
   const bloodGroupInput = byId("bloodGroup");
@@ -316,6 +409,16 @@ function hydrateSharedData() {
     city.innerText = localStorage.getItem(STORAGE_KEYS.CITY) || "-";
   }
 
+  const pincode = byId("pincode");
+  if (pincode && pincode.tagName !== "INPUT") {
+    pincode.innerText = localStorage.getItem(STORAGE_KEYS.PINCODE) || "-";
+  }
+
+  const address = byId("address");
+  if (address && address.tagName !== "INPUT") {
+    address.innerText = localStorage.getItem(STORAGE_KEYS.ADDRESS) || "-";
+  }
+
   const emergency = byId("emergencyContact");
   if (emergency && emergency.tagName !== "INPUT") {
     emergency.innerText = localStorage.getItem(STORAGE_KEYS.EMERGENCY_CONTACT) || "-";
@@ -340,6 +443,8 @@ function hydrateSharedData() {
   if (patientAge && patientAge.tagName === "INPUT" && !patientAge.value) {
     patientAge.value = calculateAgeFromDOB(localStorage.getItem(STORAGE_KEYS.DOB) || "");
   }
+
+  updateTriageRecommendationField();
 }
 
 function restoreDraftIfAvailable() {
@@ -368,6 +473,9 @@ function restoreDraftIfAvailable() {
     ["weight", "weight"],
     ["height", "height"],
     ["bmi", "bmi"],
+    ["pulseRate", "pulseRate"],
+    ["respRate", "respRate"],
+    ["bloodSugar", "bloodSugar"],
     ["bpSystolic", "bpSystolic"],
     ["bpDiastolic", "bpDiastolic"],
     ["symptoms", "symptoms"],
@@ -376,7 +484,8 @@ function restoreDraftIfAvailable() {
     ["tests", "tests"],
     ["carePlan", "carePlan"],
     ["clinicalNotes", "clinicalNotes"],
-    ["doctor", "doctor"]
+    ["doctor", "doctor"],
+    ["triageRecommendation", "triageRecommendation"]
   ];
 
   fields.forEach(([id, key]) => {
@@ -404,6 +513,7 @@ function restoreDraftIfAvailable() {
   }
 
   updateBMIField();
+  updateTriageRecommendationField();
 
   showMessage("newDataMessage", "Draft restored successfully.");
 }
@@ -592,11 +702,13 @@ function submitData() {
   const gender = byId("gender");
   const state = byId("state");
   const city = byId("city");
+  const pincode = byId("pincode");
+  const address = byId("address");
   const bloodGroup = byId("bloodGroup");
   const emergencyContact = byId("emergencyContact");
   const phone = byId("phone");
 
-  if (!name || !dob || !gender || !state || !city || !bloodGroup || !emergencyContact) {
+  if (!name || !dob || !gender || !state || !city || !pincode || !address || !bloodGroup || !emergencyContact) {
     return;
   }
 
@@ -605,6 +717,8 @@ function submitData() {
   const genderValue = gender.value;
   const stateValue = state.value;
   const cityValue = city.value.trim();
+  const pincodeValue = pincode.value.trim();
+  const addressValue = address.value.trim();
   const bloodGroupValue = bloodGroup.value;
   const emergencyValue = emergencyContact.value.trim();
   const phoneValue = phone ? phone.value.trim() : "";
@@ -647,6 +761,18 @@ function submitData() {
     return;
   }
 
+  if (!/^\d{6}$/.test(pincodeValue)) {
+    showMessage("profileMessage", "Pincode must be a valid 6-digit number.", "error");
+    pincode.focus();
+    return;
+  }
+
+  if (addressValue.length < 5) {
+    showMessage("profileMessage", "Please enter a valid address.", "error");
+    address.focus();
+    return;
+  }
+
   if (!/^\d{10}$/.test(emergencyValue)) {
     showMessage("profileMessage", "Emergency contact must be a valid 10-digit number.", "error");
     emergencyContact.focus();
@@ -665,6 +791,8 @@ function submitData() {
   localStorage.setItem(STORAGE_KEYS.BLOOD_GROUP, bloodGroupValue);
   localStorage.setItem(STORAGE_KEYS.STATE, stateValue);
   localStorage.setItem(STORAGE_KEYS.CITY, cityValue);
+  localStorage.setItem(STORAGE_KEYS.PINCODE, pincodeValue);
+  localStorage.setItem(STORAGE_KEYS.ADDRESS, addressValue);
   localStorage.setItem(STORAGE_KEYS.EMERGENCY_CONTACT, emergencyValue);
 
   window.location.href = "dashboard.html";
@@ -690,6 +818,8 @@ function logout() {
   localStorage.removeItem(STORAGE_KEYS.BLOOD_GROUP);
   localStorage.removeItem(STORAGE_KEYS.STATE);
   localStorage.removeItem(STORAGE_KEYS.CITY);
+  localStorage.removeItem(STORAGE_KEYS.PINCODE);
+  localStorage.removeItem(STORAGE_KEYS.ADDRESS);
   localStorage.removeItem(STORAGE_KEYS.EMERGENCY_CONTACT);
   localStorage.removeItem(STORAGE_KEYS.CURRENT_REPORT);
   localStorage.removeItem(STORAGE_KEYS.DRAFT_REPORT);
@@ -946,6 +1076,8 @@ function runAI() {
   if (riskLevel) {
     riskLevel.innerText = getRiskLevel(result.risk);
   }
+
+  updateTriageRecommendationField();
 }
 
 function buildCurrentReport() {
@@ -963,6 +1095,9 @@ function buildCurrentReport() {
   const weight = byId("weight");
   const height = byId("height");
   const bmi = byId("bmi");
+  const pulseRate = byId("pulseRate");
+  const respRate = byId("respRate");
+  const bloodSugar = byId("bloodSugar");
   const bpSystolic = byId("bpSystolic");
   const bpDiastolic = byId("bpDiastolic");
   const symptoms = byId("symptoms");
@@ -973,6 +1108,7 @@ function buildCurrentReport() {
   const clinicalNotes = byId("clinicalNotes");
   const doctor = byId("doctor");
   const risk = byId("risk");
+  const triageRecommendation = byId("triageRecommendation");
   const breathing = byId("breathing");
   const heart = byId("heart");
 
@@ -980,7 +1116,7 @@ function buildCurrentReport() {
     return null;
   }
 
-  return {
+  const report = {
     id: `report-${Date.now()}`,
     createdAt: new Date().toISOString(),
     patientName: patientName.value.trim(),
@@ -997,6 +1133,9 @@ function buildCurrentReport() {
     weight: weight ? weight.value : "",
     height: height ? height.value : "",
     bmi: bmi ? (bmi.value || calculateBMI(weight ? weight.value : "", height ? height.value : "")) : "",
+    pulseRate: pulseRate ? pulseRate.value : "",
+    respRate: respRate ? respRate.value : "",
+    bloodSugar: bloodSugar ? bloodSugar.value : "",
     bpSystolic: bpSystolic ? bpSystolic.value : "",
     bpDiastolic: bpDiastolic ? bpDiastolic.value : "",
     symptoms: symptoms.value.trim(),
@@ -1007,11 +1146,18 @@ function buildCurrentReport() {
     clinicalNotes: (clinicalNotes && clinicalNotes.value.trim()) || "",
     risk: Number(risk.innerText) || 0,
     riskLevel: getRiskLevel(Number(risk.innerText) || 0),
+    triageRecommendation: triageRecommendation ? triageRecommendation.value : "",
     doctor: doctor.value.trim(),
     breathing: breathing ? breathing.innerText : "Idle",
     pulse: heart ? heart.innerText : "Idle",
     status: "Generated"
   };
+
+  if (!report.triageRecommendation) {
+    report.triageRecommendation = recommendTriageLevel(report);
+  }
+
+  return report;
 }
 
 function generateReport() {
@@ -1060,12 +1206,47 @@ function generateReport() {
     return;
   }
 
+  if (report.pulseRate && (Number(report.pulseRate) < 30 || Number(report.pulseRate) > 220)) {
+    showMessage("newDataMessage", "Pulse rate must be between 30 and 220 BPM.", "error");
+    byId("pulseRate").focus();
+    return;
+  }
+
+  if (report.respRate && (Number(report.respRate) < 5 || Number(report.respRate) > 60)) {
+    showMessage("newDataMessage", "Respiratory rate must be between 5 and 60.", "error");
+    byId("respRate").focus();
+    return;
+  }
+
+  if (report.bloodSugar && (Number(report.bloodSugar) < 20 || Number(report.bloodSugar) > 600)) {
+    showMessage("newDataMessage", "Blood sugar must be between 20 and 600 mg/dL.", "error");
+    byId("bloodSugar").focus();
+    return;
+  }
+
   if (report.weight && report.height) {
     const computedBmi = calculateBMI(report.weight, report.height);
     report.bmi = computedBmi;
     const bmiInput = byId("bmi");
     if (bmiInput) {
       bmiInput.value = computedBmi;
+    }
+  }
+
+  report.triageRecommendation = recommendTriageLevel(report);
+  const triageInput = byId("triageRecommendation");
+  if (triageInput) {
+    triageInput.value = report.triageRecommendation;
+  }
+
+  const priorityWeight = { Routine: 1, Urgent: 2, Emergency: 3 };
+  let priorityAutoAdjusted = false;
+  if ((priorityWeight[report.priority] || 0) < (priorityWeight[report.triageRecommendation] || 0)) {
+    report.priority = report.triageRecommendation;
+    priorityAutoAdjusted = true;
+    const priorityInput = byId("priority");
+    if (priorityInput) {
+      priorityInput.value = report.priority;
     }
   }
 
@@ -1087,18 +1268,23 @@ function generateReport() {
     <p><strong>Consultation:</strong> ${safeText(report.consultationType || "-")}</p>
     <p><strong>Complaint:</strong> ${safeText(report.chiefComplaint || "-")}</p>
     <p><strong>Allergies:</strong> ${safeText(report.knownAllergies || "-")}</p>
-    <p><strong>Vitals:</strong> Temp ${safeText(report.temperature || "-")}F, SpO2 ${safeText(report.spo2 || "-")}%, Weight ${safeText(report.weight || "-")}kg, Height ${safeText(report.height || "-")}cm, BMI ${safeText(report.bmi || "-")}, BP ${safeText(report.bpSystolic || "-")}/${safeText(report.bpDiastolic || "-")}</p>
+    <p><strong>Vitals:</strong> Temp ${safeText(report.temperature || "-")}F, SpO2 ${safeText(report.spo2 || "-")}%, Weight ${safeText(report.weight || "-")}kg, Height ${safeText(report.height || "-")}cm, BMI ${safeText(report.bmi || "-")}, Pulse ${safeText(report.pulseRate || "-")} BPM, Resp ${safeText(report.respRate || "-")}/min, Sugar ${safeText(report.bloodSugar || "-")} mg/dL, BP ${safeText(report.bpSystolic || "-")}/${safeText(report.bpDiastolic || "-")}</p>
     <p><strong>Symptoms:</strong> ${safeText(report.symptoms)}</p>
     <p><strong>Diagnosis:</strong> ${safeText(report.diagnosis || "-")}</p>
     <p><strong>Medicines:</strong> ${safeText(report.medicines)}</p>
     <p><strong>Tests:</strong> ${safeText(report.tests)}</p>
     <p><strong>Care Plan:</strong> ${safeText(report.carePlan || "-")}</p>
     <p><strong>Risk:</strong> ${safeText(report.risk)}% (${safeText(report.riskLevel)})</p>
+    <p><strong>AI Triage:</strong> ${safeText(report.triageRecommendation || "Routine")}</p>
     <p><strong>Doctor:</strong> ${safeText(report.doctor)}</p>
     <p><strong>Additional Notes:</strong> ${safeText(report.clinicalNotes || "-")}</p>
   `;
 
   after.hidden = false;
+  if (priorityAutoAdjusted) {
+    showMessage("newDataMessage", `Priority auto-updated to ${report.priority} based on AI triage.`);
+    return;
+  }
   showMessage("newDataMessage", "Report generated. You can now download or store it.");
 }
 
@@ -1118,6 +1304,9 @@ function saveDraft() {
     weight: (byId("weight") && byId("weight").value) || "",
     height: (byId("height") && byId("height").value) || "",
     bmi: (byId("bmi") && byId("bmi").value) || "",
+    pulseRate: (byId("pulseRate") && byId("pulseRate").value) || "",
+    respRate: (byId("respRate") && byId("respRate").value) || "",
+    bloodSugar: (byId("bloodSugar") && byId("bloodSugar").value) || "",
     bpSystolic: (byId("bpSystolic") && byId("bpSystolic").value) || "",
     bpDiastolic: (byId("bpDiastolic") && byId("bpDiastolic").value) || "",
     symptoms: (byId("symptoms") && byId("symptoms").value.trim()) || "",
@@ -1127,7 +1316,8 @@ function saveDraft() {
     carePlan: (byId("carePlan") && byId("carePlan").value.trim()) || "",
     clinicalNotes: (byId("clinicalNotes") && byId("clinicalNotes").value.trim()) || "",
     doctor: (byId("doctor") && byId("doctor").value.trim()) || "",
-    risk: Number((byId("risk") && byId("risk").innerText) || 0)
+    risk: Number((byId("risk") && byId("risk").innerText) || 0),
+    triageRecommendation: (byId("triageRecommendation") && byId("triageRecommendation").value) || "Routine"
   };
 
   setStoredJSON(STORAGE_KEYS.DRAFT_REPORT, draft);
@@ -1146,6 +1336,9 @@ function resetNewDataForm() {
     "weight",
     "height",
     "bmi",
+    "pulseRate",
+    "respRate",
+    "bloodSugar",
     "bpSystolic",
     "bpDiastolic",
     "symptoms",
@@ -1154,7 +1347,8 @@ function resetNewDataForm() {
     "tests",
     "carePlan",
     "clinicalNotes",
-    "doctor"
+    "doctor",
+    "triageRecommendation"
   ].forEach((id) => {
     const field = byId(id);
     if (field) {
@@ -1199,6 +1393,7 @@ function resetNewDataForm() {
   }
 
   updateBMIField();
+  updateTriageRecommendationField();
 
   localStorage.removeItem(STORAGE_KEYS.CURRENT_REPORT);
   showMessage("newDataMessage", "Form reset complete.");
@@ -1273,6 +1468,9 @@ function downloadPDF(index) {
   const weight = getReportField(data, ["weight"], "-");
   const height = getReportField(data, ["height"], "-");
   const bmi = getReportField(data, ["bmi"], calculateBMI(weight, height) || "-");
+  const pulseRate = getReportField(data, ["pulseRate"], "-");
+  const respRate = getReportField(data, ["respRate"], "-");
+  const bloodSugar = getReportField(data, ["bloodSugar"], "-");
   const bpSystolic = getReportField(data, ["bpSystolic"], "-");
   const bpDiastolic = getReportField(data, ["bpDiastolic"], "-");
   const status = getReportField(data, ["status"], "N/A");
@@ -1283,6 +1481,7 @@ function downloadPDF(index) {
   const carePlan = getReportField(data, ["carePlan"], "-");
   const risk = getReportField(data, ["risk"], "0");
   const riskLevel = getReportField(data, ["riskLevel"], getRiskLevel(Number(risk) || 0));
+  const triageRecommendation = getReportField(data, ["triageRecommendation", "priority"], "Routine");
   const doctor = getReportField(data, ["doctor"]);
   const notes = getReportField(data, ["clinicalNotes"], "-");
 
@@ -1295,7 +1494,7 @@ function downloadPDF(index) {
   text += `Consultation Type: ${consultationType}\n`;
   text += `Chief Complaint: ${chiefComplaint}\n`;
   text += `Known Allergies: ${knownAllergies}\n`;
-  text += `Vitals: Temp ${temperature}F, SpO2 ${spo2}%, Weight ${weight}kg, Height ${height}cm, BMI ${bmi}, BP ${bpSystolic}/${bpDiastolic}\n`;
+  text += `Vitals: Temp ${temperature}F, SpO2 ${spo2}%, Weight ${weight}kg, Height ${height}cm, BMI ${bmi}, Pulse ${pulseRate} BPM, Resp ${respRate}/min, Sugar ${bloodSugar} mg/dL, BP ${bpSystolic}/${bpDiastolic}\n`;
   text += `Status: ${status}\n`;
   text += `Symptoms: ${symptoms}\n`;
   text += `Diagnosis: ${diagnosis}\n`;
@@ -1303,6 +1502,7 @@ function downloadPDF(index) {
   text += `Tests: ${tests}\n`;
   text += `Care Plan: ${carePlan}\n`;
   text += `Risk: ${risk}% (${riskLevel})\n`;
+  text += `AI Triage: ${triageRecommendation}\n`;
   text += `Doctor: ${doctor}\n`;
   text += `Additional Notes: ${notes}`;
 
@@ -1321,10 +1521,12 @@ function matchesFilters(report) {
   const searchInput = byId("searchReport");
   const highRiskOnly = byId("highRiskOnly");
   const priorityFilter = byId("priorityFilter");
+  const triageFilter = byId("triageFilter");
 
   const search = searchInput ? searchInput.value.trim().toLowerCase() : "";
   const highRisk = highRiskOnly ? highRiskOnly.checked : false;
   const prioritySelected = priorityFilter ? priorityFilter.value : "all";
+  const triageSelected = triageFilter ? triageFilter.value : "all";
 
   const patient = String(getReportField(report, ["patientName", "name"], "")).toLowerCase();
   const complaint = String(getReportField(report, ["chiefComplaint"], "")).toLowerCase();
@@ -1333,6 +1535,7 @@ function matchesFilters(report) {
   const doctor = String(getReportField(report, ["doctor"], "")).toLowerCase();
   const tests = String(getReportField(report, ["tests"], "")).toLowerCase();
   const priority = String(getReportField(report, ["priority"], "")).toLowerCase();
+  const triage = String(getReportField(report, ["triageRecommendation", "priority"], "")).toLowerCase();
   const notes = String(getReportField(report, ["clinicalNotes"], "")).toLowerCase();
   const risk = Number(getReportField(report, ["risk"], 0)) || 0;
 
@@ -1344,8 +1547,12 @@ function matchesFilters(report) {
     return false;
   }
 
+  if (triageSelected !== "all" && getReportField(report, ["triageRecommendation", "priority"], "") !== triageSelected) {
+    return false;
+  }
+
   if (search) {
-    const haystack = `${patient} ${complaint} ${symptoms} ${diagnosis} ${doctor} ${tests} ${priority} ${notes}`;
+    const haystack = `${patient} ${complaint} ${symptoms} ${diagnosis} ${doctor} ${tests} ${priority} ${triage} ${notes}`;
     if (!haystack.includes(search)) {
       return false;
     }
@@ -1492,6 +1699,9 @@ function loadReports() {
     const weight = getReportField(report, ["weight"], "-");
     const height = getReportField(report, ["height"], "-");
     const bmi = getReportField(report, ["bmi"], calculateBMI(weight, height) || "-");
+    const pulseRate = getReportField(report, ["pulseRate"], "-");
+    const respRate = getReportField(report, ["respRate"], "-");
+    const bloodSugar = getReportField(report, ["bloodSugar"], "-");
     const bpSystolic = getReportField(report, ["bpSystolic"], "-");
     const bpDiastolic = getReportField(report, ["bpDiastolic"], "-");
     const status = getReportField(report, ["status"]);
@@ -1502,6 +1712,7 @@ function loadReports() {
     const carePlan = getReportField(report, ["carePlan"], "-");
     const risk = parseReportRisk(report);
     const riskLevel = getReportField(report, ["riskLevel"], getRiskLevel(risk));
+    const triageRecommendation = getReportField(report, ["triageRecommendation", "priority"], "Routine");
     const doctor = getReportField(report, ["doctor"]);
     const notes = getReportField(report, ["clinicalNotes"], "-");
     const reportId = getReportField(report, ["id"], "");
@@ -1518,7 +1729,7 @@ function loadReports() {
       <p><strong>Consultation:</strong> ${safeText(consultationType)}</p>
       <p><strong>Complaint:</strong> ${safeText(complaint)}</p>
       <p><strong>Allergies:</strong> ${safeText(allergies)}</p>
-      <p><strong>Vitals:</strong> Temp ${safeText(temperature)}F, SpO2 ${safeText(spo2)}%, Weight ${safeText(weight)}kg, Height ${safeText(height)}cm, BMI ${safeText(bmi)}, BP ${safeText(bpSystolic)}/${safeText(bpDiastolic)}</p>
+      <p><strong>Vitals:</strong> Temp ${safeText(temperature)}F, SpO2 ${safeText(spo2)}%, Weight ${safeText(weight)}kg, Height ${safeText(height)}cm, BMI ${safeText(bmi)}, Pulse ${safeText(pulseRate)} BPM, Resp ${safeText(respRate)}/min, Sugar ${safeText(bloodSugar)} mg/dL, BP ${safeText(bpSystolic)}/${safeText(bpDiastolic)}</p>
       <p><strong>Status:</strong> ${safeText(status)}</p>
       <p><strong>Symptoms:</strong> ${safeText(symptoms)}</p>
       <p><strong>Diagnosis:</strong> ${safeText(diagnosis)}</p>
@@ -1526,6 +1737,7 @@ function loadReports() {
       <p><strong>Tests:</strong> ${safeText(tests)}</p>
       <p><strong>Care Plan:</strong> ${safeText(carePlan)}</p>
       <p><strong>Risk:</strong> <span class="risk-badge ${riskBadgeClass(risk)}">${safeText(risk)}% (${safeText(riskLevel)})</span></p>
+      <p><strong>AI Triage:</strong> ${safeText(triageRecommendation)}</p>
       <p><strong>Doctor:</strong> ${safeText(doctor)}</p>
       <p><strong>Notes:</strong> ${safeText(notes)}</p>
       <div class="report-actions">
@@ -1621,6 +1833,9 @@ function updateDashboardStats() {
   const routineCount = reports.filter((report) => getReportField(report, ["priority"], "Routine") === "Routine").length;
   const urgentCount = reports.filter((report) => getReportField(report, ["priority"], "Routine") === "Urgent").length;
   const emergencyCount = reports.filter((report) => getReportField(report, ["priority"], "Routine") === "Emergency").length;
+  const triageEmergencyCount = reports.filter(
+    (report) => getReportField(report, ["triageRecommendation", "priority"], "Routine") === "Emergency"
+  ).length;
   const reportsToday = reports.filter(
     (report) => getReportField(report, ["visitDate", "date"], "") === today
   ).length;
@@ -1652,6 +1867,7 @@ function updateDashboardStats() {
   const statEmergency = byId("statEmergency");
   const statToday = byId("statToday");
   const statFollowUpDue = byId("statFollowUpDue");
+  const statTriageEmergency = byId("statTriageEmergency");
   const statLastVisit = byId("statLastVisit");
 
   if (statTotal) {
@@ -1696,6 +1912,10 @@ function updateDashboardStats() {
 
   if (statFollowUpDue) {
     statFollowUpDue.innerText = String(followUpDue);
+  }
+
+  if (statTriageEmergency) {
+    statTriageEmergency.innerText = String(triageEmergencyCount);
   }
 
   if (statLastVisit) {
