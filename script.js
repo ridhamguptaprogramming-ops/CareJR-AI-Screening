@@ -17,6 +17,7 @@ let cameraStream = null;
 let breathInterval = null;
 let pulseInterval = null;
 let monitoringActive = false;
+let otpCooldownInterval = null;
 
 function byId(id) {
   return document.getElementById(id);
@@ -96,6 +97,11 @@ function applyDateLimits() {
       visitDate.value = today;
     }
   }
+
+  const followUpDate = byId("followUpDate");
+  if (followUpDate) {
+    followUpDate.min = visitDate && visitDate.value ? visitDate.value : today;
+  }
 }
 
 function setupFormHandlers() {
@@ -130,6 +136,18 @@ function setupFormHandlers() {
   if (otpInput) {
     otpInput.addEventListener("input", (event) => {
       event.target.value = event.target.value.replace(/\D/g, "").slice(0, 4);
+    });
+  }
+
+  const visitDate = byId("visitDate");
+  const followUpDate = byId("followUpDate");
+  if (visitDate && followUpDate) {
+    visitDate.addEventListener("change", () => {
+      const minDate = visitDate.value || new Date().toISOString().split("T")[0];
+      followUpDate.min = minDate;
+      if (followUpDate.value && followUpDate.value < minDate) {
+        followUpDate.value = minDate;
+      }
     });
   }
 }
@@ -175,6 +193,8 @@ function restoreDraftIfAvailable() {
   const fields = [
     ["patientName", "patientName"],
     ["visitDate", "visitDate"],
+    ["followUpDate", "followUpDate"],
+    ["priority", "priority"],
     ["conversation", "conversation"],
     ["symptoms", "symptoms"],
     ["medicines", "medicines"],
@@ -189,6 +209,12 @@ function restoreDraftIfAvailable() {
       input.value = draft[key];
     }
   });
+
+  const visitDate = byId("visitDate");
+  const followUpDate = byId("followUpDate");
+  if (visitDate && followUpDate && visitDate.value) {
+    followUpDate.min = visitDate.value;
+  }
 
   if (draft.risk !== undefined && draft.risk !== null) {
     const risk = byId("risk");
@@ -223,6 +249,7 @@ function initPage() {
   ensureSession();
   applyDateLimits();
   setupFormHandlers();
+  setupSidebarBehavior();
   hydrateSharedData();
   restoreDraftIfAvailable();
 
@@ -236,6 +263,64 @@ function initPage() {
 }
 
 document.addEventListener("DOMContentLoaded", initPage);
+
+function setupSidebarBehavior() {
+  const side = byId("side");
+  const menuButton = document.querySelector(".menu");
+
+  if (!side || !menuButton) {
+    return;
+  }
+
+  side.querySelectorAll("a").forEach((link) => {
+    link.addEventListener("click", () => {
+      side.classList.remove("open");
+    });
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!side.classList.contains("open")) {
+      return;
+    }
+
+    if (side.contains(event.target) || menuButton.contains(event.target)) {
+      return;
+    }
+
+    side.classList.remove("open");
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      side.classList.remove("open");
+    }
+  });
+}
+
+function startOtpCooldown(totalSeconds = 20) {
+  const resendBtn = byId("resendBtn");
+  if (!resendBtn) {
+    return;
+  }
+
+  clearInterval(otpCooldownInterval);
+
+  let seconds = totalSeconds;
+  resendBtn.disabled = true;
+  resendBtn.textContent = `Resend OTP (${seconds}s)`;
+
+  otpCooldownInterval = setInterval(() => {
+    seconds -= 1;
+    if (seconds <= 0) {
+      clearInterval(otpCooldownInterval);
+      otpCooldownInterval = null;
+      resendBtn.disabled = false;
+      resendBtn.textContent = "Resend OTP";
+      return;
+    }
+    resendBtn.textContent = `Resend OTP (${seconds}s)`;
+  }, 1000);
+}
 
 function sendOTP() {
   const phoneInput = byId("phone");
@@ -265,10 +350,16 @@ function sendOTP() {
     otpInput.focus();
   }
 
+  startOtpCooldown(20);
   showMessage("authMessage", `OTP sent successfully. Demo OTP: ${generatedOtp}`);
 }
 
 function resendOTP() {
+  const resendBtn = byId("resendBtn");
+  if (resendBtn && resendBtn.disabled) {
+    return;
+  }
+
   const sentAt = Number(localStorage.getItem(STORAGE_KEYS.OTP_SENT_AT) || "0");
   const waitMs = 20_000;
   const remaining = waitMs - (Date.now() - sentAt);
@@ -276,6 +367,7 @@ function resendOTP() {
   if (remaining > 0) {
     const seconds = Math.ceil(remaining / 1000);
     showMessage("authMessage", `Please wait ${seconds}s before requesting a new OTP.`, "error");
+    startOtpCooldown(seconds);
     return;
   }
 
@@ -616,6 +708,8 @@ function runAI() {
 function buildCurrentReport() {
   const patientName = byId("patientName");
   const visitDate = byId("visitDate");
+  const followUpDate = byId("followUpDate");
+  const priority = byId("priority");
   const conversation = byId("conversation");
   const symptoms = byId("symptoms");
   const medicines = byId("medicines");
@@ -635,6 +729,8 @@ function buildCurrentReport() {
     createdAt: new Date().toISOString(),
     patientName: patientName.value.trim(),
     visitDate: visitDate.value,
+    followUpDate: followUpDate ? followUpDate.value : "",
+    priority: priority ? priority.value : "Routine",
     conversation: (conversation && conversation.value.trim()) || "",
     symptoms: symptoms.value.trim(),
     medicines: medicines.value.trim(),
@@ -671,6 +767,12 @@ function generateReport() {
     return;
   }
 
+  if (report.followUpDate && report.followUpDate < report.visitDate) {
+    showMessage("newDataMessage", "Follow-up date cannot be before visit date.", "error");
+    byId("followUpDate").focus();
+    return;
+  }
+
   if (!report.doctor) {
     showMessage("newDataMessage", "Please enter doctor name/signature.", "error");
     byId("doctor").focus();
@@ -683,6 +785,8 @@ function generateReport() {
     <h3>Report Preview</h3>
     <p><strong>Patient:</strong> ${safeText(report.patientName)}</p>
     <p><strong>Date:</strong> ${safeText(report.visitDate)}</p>
+    <p><strong>Follow-up:</strong> ${safeText(report.followUpDate || "-")}</p>
+    <p><strong>Priority:</strong> ${safeText(report.priority)}</p>
     <p><strong>Symptoms:</strong> ${safeText(report.symptoms)}</p>
     <p><strong>Medicines:</strong> ${safeText(report.medicines)}</p>
     <p><strong>Tests:</strong> ${safeText(report.tests)}</p>
@@ -699,6 +803,8 @@ function saveDraft() {
   const draft = {
     patientName: (byId("patientName") && byId("patientName").value.trim()) || "",
     visitDate: (byId("visitDate") && byId("visitDate").value) || "",
+    followUpDate: (byId("followUpDate") && byId("followUpDate").value) || "",
+    priority: (byId("priority") && byId("priority").value) || "Routine",
     conversation: (byId("conversation") && byId("conversation").value.trim()) || "",
     symptoms: (byId("symptoms") && byId("symptoms").value.trim()) || "",
     medicines: (byId("medicines") && byId("medicines").value.trim()) || "",
@@ -715,6 +821,7 @@ function saveDraft() {
 function resetNewDataForm() {
   [
     "patientName",
+    "followUpDate",
     "conversation",
     "symptoms",
     "medicines",
@@ -732,6 +839,7 @@ function resetNewDataForm() {
   const riskLevel = byId("riskLevel");
   const preview = byId("preview");
   const after = byId("after");
+  const priority = byId("priority");
 
   if (risk) {
     risk.innerText = "0";
@@ -749,8 +857,13 @@ function resetNewDataForm() {
     after.hidden = true;
   }
 
+  if (priority) {
+    priority.value = "Routine";
+  }
+
   localStorage.removeItem(STORAGE_KEYS.CURRENT_REPORT);
   showMessage("newDataMessage", "Form reset complete.");
+  applyDateLimits();
 }
 
 function sendPharmacy() {
@@ -810,6 +923,8 @@ function downloadPDF(index) {
 
   const patientName = getReportField(data, ["patientName", "name"], "Medical_Report");
   const visitDate = getReportField(data, ["visitDate", "date"]);
+  const followUpDate = getReportField(data, ["followUpDate"], "-");
+  const priority = getReportField(data, ["priority"], "Routine");
   const status = getReportField(data, ["status"], "N/A");
   const symptoms = getReportField(data, ["symptoms"]);
   const medicines = getReportField(data, ["medicines"]);
@@ -822,6 +937,8 @@ function downloadPDF(index) {
   let text = "CAREJR AI MEDICAL REPORT\n\n";
   text += `Patient: ${patientName}\n`;
   text += `Date: ${visitDate}\n`;
+  text += `Follow-up Date: ${followUpDate}\n`;
+  text += `Priority: ${priority}\n`;
   text += `Status: ${status}\n`;
   text += `Symptoms: ${symptoms}\n`;
   text += `Medicines: ${medicines}\n`;
@@ -852,6 +969,8 @@ function matchesFilters(report) {
   const symptoms = String(getReportField(report, ["symptoms"], "")).toLowerCase();
   const doctor = String(getReportField(report, ["doctor"], "")).toLowerCase();
   const tests = String(getReportField(report, ["tests"], "")).toLowerCase();
+  const priority = String(getReportField(report, ["priority"], "")).toLowerCase();
+  const notes = String(getReportField(report, ["clinicalNotes"], "")).toLowerCase();
   const risk = Number(getReportField(report, ["risk"], 0)) || 0;
 
   if (highRisk && risk < 70) {
@@ -859,7 +978,7 @@ function matchesFilters(report) {
   }
 
   if (search) {
-    const haystack = `${patient} ${symptoms} ${doctor} ${tests}`;
+    const haystack = `${patient} ${symptoms} ${doctor} ${tests} ${priority} ${notes}`;
     if (!haystack.includes(search)) {
       return false;
     }
@@ -881,6 +1000,61 @@ function riskBadgeClass(risk) {
   return "risk-low";
 }
 
+function parseReportDate(report) {
+  const rawDate = getReportField(report, ["createdAt", "visitDate", "date"], "");
+  const parsed = Date.parse(rawDate);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function parseReportRisk(report) {
+  return Number(getReportField(report, ["risk"], 0)) || 0;
+}
+
+function sortReportEntries(entries) {
+  const sortSelect = byId("sortReports");
+  const sortMode = sortSelect ? sortSelect.value : "newest";
+  const list = entries.slice();
+
+  if (sortMode === "oldest") {
+    list.sort((a, b) => parseReportDate(a.report) - parseReportDate(b.report));
+  } else if (sortMode === "risk-high") {
+    list.sort((a, b) => parseReportRisk(b.report) - parseReportRisk(a.report));
+  } else if (sortMode === "risk-low") {
+    list.sort((a, b) => parseReportRisk(a.report) - parseReportRisk(b.report));
+  } else {
+    list.sort((a, b) => parseReportDate(b.report) - parseReportDate(a.report));
+  }
+
+  return list;
+}
+
+function updatePreviousSummary(filteredEntries, totalStored) {
+  const visible = filteredEntries.length;
+  const visibleRisks = filteredEntries.map((entry) => parseReportRisk(entry.report));
+  const critical = visibleRisks.filter((risk) => risk >= 80).length;
+  const avgRisk = visible > 0
+    ? Math.round(visibleRisks.reduce((sum, risk) => sum + risk, 0) / visible)
+    : 0;
+
+  const summaryVisible = byId("summaryVisible");
+  const summaryStored = byId("summaryStored");
+  const summaryCritical = byId("summaryCritical");
+  const summaryAverage = byId("summaryAverage");
+
+  if (summaryVisible) {
+    summaryVisible.textContent = String(visible);
+  }
+  if (summaryStored) {
+    summaryStored.textContent = String(totalStored);
+  }
+  if (summaryCritical) {
+    summaryCritical.textContent = String(critical);
+  }
+  if (summaryAverage) {
+    summaryAverage.textContent = `${avgRisk}%`;
+  }
+}
+
 function loadReports() {
   const container = byId("reportContainer");
   if (!container) {
@@ -889,6 +1063,7 @@ function loadReports() {
 
   const reports = getStoredJSON(STORAGE_KEYS.REPORTS, []);
   container.innerHTML = "";
+  updatePreviousSummary([], reports.length);
 
   if (reports.length === 0) {
     container.innerHTML = '<div class="no-report">No Reports Available</div>';
@@ -896,58 +1071,59 @@ function loadReports() {
     return;
   }
 
-  let visibleCount = 0;
-
-  reports
+  const filteredEntries = reports
     .map((report, index) => ({ report, index }))
-    .reverse()
-    .forEach(({ report, index }) => {
-      if (!matchesFilters(report)) {
-        return;
-      }
+    .filter(({ report }) => matchesFilters(report));
 
-      visibleCount += 1;
+  const sortedEntries = sortReportEntries(filteredEntries);
+  updatePreviousSummary(sortedEntries, reports.length);
 
-      const patient = getReportField(report, ["patientName", "name"]);
-      const date = getReportField(report, ["visitDate", "date"]);
-      const status = getReportField(report, ["status"]);
-      const symptoms = getReportField(report, ["symptoms"]);
-      const medicines = getReportField(report, ["medicines"]);
-      const tests = getReportField(report, ["tests", "exercise"]);
-      const risk = Number(getReportField(report, ["risk"], 0)) || 0;
-      const riskLevel = getReportField(report, ["riskLevel"], getRiskLevel(risk));
-      const doctor = getReportField(report, ["doctor"]);
-      const notes = getReportField(report, ["clinicalNotes"], "-");
-      const reportId = getReportField(report, ["id"], "");
-
-      const div = document.createElement("div");
-      div.className = "report";
-
-      div.innerHTML = `
-        <h3>${safeText(patient)}</h3>
-        <p><strong>Date:</strong> ${safeText(date)}</p>
-        <p><strong>Status:</strong> ${safeText(status)}</p>
-        <p><strong>Symptoms:</strong> ${safeText(symptoms)}</p>
-        <p><strong>Medicines:</strong> ${safeText(medicines)}</p>
-        <p><strong>Tests:</strong> ${safeText(tests)}</p>
-        <p><strong>Risk:</strong> <span class="risk-badge ${riskBadgeClass(risk)}">${safeText(risk)}% (${safeText(riskLevel)})</span></p>
-        <p><strong>Doctor:</strong> ${safeText(doctor)}</p>
-        <p><strong>Notes:</strong> ${safeText(notes)}</p>
-        <div class="report-actions">
-          <button class="pdf-btn" onclick="downloadPDF(${index})">Download Report</button>
-          <button class="delete-btn" onclick="deleteReport(${index}, '${safeText(reportId)}')">Delete</button>
-        </div>
-      `;
-
-      container.appendChild(div);
-    });
-
-  if (visibleCount === 0) {
+  if (sortedEntries.length === 0) {
     container.innerHTML = '<div class="no-report">No reports match current filters.</div>';
     showMessage("reportsMessage", "No matching reports.", "error");
-  } else {
-    showMessage("reportsMessage", `${visibleCount} report(s) shown.`);
+    return;
   }
+
+  sortedEntries.forEach(({ report, index }) => {
+    const patient = getReportField(report, ["patientName", "name"]);
+    const date = getReportField(report, ["visitDate", "date"]);
+    const followUpDate = getReportField(report, ["followUpDate"], "-");
+    const priority = getReportField(report, ["priority"], "Routine");
+    const status = getReportField(report, ["status"]);
+    const symptoms = getReportField(report, ["symptoms"]);
+    const medicines = getReportField(report, ["medicines"]);
+    const tests = getReportField(report, ["tests", "exercise"]);
+    const risk = parseReportRisk(report);
+    const riskLevel = getReportField(report, ["riskLevel"], getRiskLevel(risk));
+    const doctor = getReportField(report, ["doctor"]);
+    const notes = getReportField(report, ["clinicalNotes"], "-");
+    const reportId = getReportField(report, ["id"], "");
+
+    const div = document.createElement("div");
+    div.className = "report";
+
+    div.innerHTML = `
+      <h3>${safeText(patient)}</h3>
+      <p><strong>Date:</strong> ${safeText(date)}</p>
+      <p><strong>Follow-up:</strong> ${safeText(followUpDate)}</p>
+      <p><strong>Priority:</strong> ${safeText(priority)}</p>
+      <p><strong>Status:</strong> ${safeText(status)}</p>
+      <p><strong>Symptoms:</strong> ${safeText(symptoms)}</p>
+      <p><strong>Medicines:</strong> ${safeText(medicines)}</p>
+      <p><strong>Tests:</strong> ${safeText(tests)}</p>
+      <p><strong>Risk:</strong> <span class="risk-badge ${riskBadgeClass(risk)}">${safeText(risk)}% (${safeText(riskLevel)})</span></p>
+      <p><strong>Doctor:</strong> ${safeText(doctor)}</p>
+      <p><strong>Notes:</strong> ${safeText(notes)}</p>
+      <div class="report-actions">
+        <button class="pdf-btn" onclick="downloadPDF(${index})">Download Report</button>
+        <button class="delete-btn" onclick="deleteReport(${index}, '${safeText(reportId)}')">Delete</button>
+      </div>
+    `;
+
+    container.appendChild(div);
+  });
+
+  showMessage("reportsMessage", `${sortedEntries.length} report(s) shown.`);
 }
 
 function filterReports() {
@@ -1019,7 +1195,14 @@ function updateDashboardStats() {
   const reports = getStoredJSON(STORAGE_KEYS.REPORTS, []);
 
   const total = reports.length;
-  const highRisk = reports.filter((report) => (Number(getReportField(report, ["risk"], 0)) || 0) >= 70).length;
+  const highRisk = reports.filter((report) => parseReportRisk(report) >= 70).length;
+  const critical = reports.filter((report) => parseReportRisk(report) >= 80).length;
+  const high = reports.filter((report) => parseReportRisk(report) >= 60 && parseReportRisk(report) < 80).length;
+  const moderate = reports.filter((report) => parseReportRisk(report) >= 30 && parseReportRisk(report) < 60).length;
+  const low = reports.filter((report) => parseReportRisk(report) < 30).length;
+  const average = total > 0
+    ? Math.round(reports.reduce((sum, report) => sum + parseReportRisk(report), 0) / total)
+    : 0;
 
   let lastVisit = "-";
   if (reports.length > 0) {
@@ -1035,6 +1218,10 @@ function updateDashboardStats() {
 
   const statTotal = byId("statTotal");
   const statHighRisk = byId("statHighRisk");
+  const statCritical = byId("statCritical");
+  const statModerate = byId("statModerate");
+  const statLow = byId("statLow");
+  const statAverage = byId("statAverage");
   const statLastVisit = byId("statLastVisit");
 
   if (statTotal) {
@@ -1045,7 +1232,43 @@ function updateDashboardStats() {
     statHighRisk.innerText = String(highRisk);
   }
 
+  if (statCritical) {
+    statCritical.innerText = String(critical);
+  }
+
+  if (statModerate) {
+    statModerate.innerText = String(moderate);
+  }
+
+  if (statLow) {
+    statLow.innerText = String(low);
+  }
+
+  if (statAverage) {
+    statAverage.innerText = `${average}%`;
+  }
+
   if (statLastVisit) {
     statLastVisit.innerText = lastVisit;
   }
+
+  const ratio = (value) => (total > 0 ? Math.round((value / total) * 100) : 0);
+
+  const meterMap = [
+    ["meterLow", "meterLowLabel", ratio(low)],
+    ["meterModerate", "meterModerateLabel", ratio(moderate)],
+    ["meterHigh", "meterHighLabel", ratio(high)],
+    ["meterCritical", "meterCriticalLabel", ratio(critical)]
+  ];
+
+  meterMap.forEach(([meterId, labelId, percent]) => {
+    const meter = byId(meterId);
+    const label = byId(labelId);
+    if (meter) {
+      meter.style.width = `${percent}%`;
+    }
+    if (label) {
+      label.textContent = `${percent}%`;
+    }
+  });
 }

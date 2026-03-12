@@ -16,6 +16,25 @@
     </div>
   </header>
 
+  <section class="mini-stats" aria-label="Report summary">
+    <article class="mini-stat">
+      <h3>Visible</h3>
+      <p id="summaryVisible">0</p>
+    </article>
+    <article class="mini-stat">
+      <h3>Stored</h3>
+      <p id="summaryStored">0</p>
+    </article>
+    <article class="mini-stat">
+      <h3>Critical</h3>
+      <p id="summaryCritical">0</p>
+    </article>
+    <article class="mini-stat">
+      <h3>Average Risk</h3>
+      <p id="summaryAverage">0%</p>
+    </article>
+  </section>
+
   <section class="controls-row" aria-label="Report filters">
     <input
       id="searchReport"
@@ -24,6 +43,14 @@
       aria-label="Search reports"
       oninput="filterReports()"
     >
+
+    <select id="sortReports" aria-label="Sort reports" onchange="filterReports()">
+      <option value="newest">Sort: Newest</option>
+      <option value="oldest">Sort: Oldest</option>
+      <option value="risk-high">Sort: Highest Risk</option>
+      <option value="risk-low">Sort: Lowest Risk</option>
+    </select>
+
     <label class="inline-check" for="highRiskOnly">
       <input id="highRiskOnly" type="checkbox" onchange="filterReports()">
       High risk only (>= 70%)

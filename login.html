@@ -8,8 +8,9 @@
 </head>
 <body class="login-page">
   <main class="box" aria-labelledby="loginTitle">
-    <h1 id="loginTitle">CareJR AI</h1>
-    <p class="subtext">Secure OTP login for patient screening workflows.</p>
+    <div class="brand-chip">CareJR AI Screening</div>
+    <h1 id="loginTitle">Secure Login</h1>
+    <p class="subtext">Enter your registered phone number to continue with the clinical workflow.</p>
 
     <form id="loginForm" novalidate>
       <label for="phone">Phone Number</label>
@@ -27,7 +28,7 @@
 
       <button type="submit" class="btn-primary">Send OTP</button>
 
-      <div id="otpBox" hidden role="region" aria-live="polite">
+      <div id="otpBox" class="soft-panel" hidden role="region" aria-live="polite">
         <label for="otp">OTP</label>
         <input
           type="text"
@@ -41,7 +42,7 @@
         >
         <div class="button-group">
           <button type="button" onclick="verify()" class="btn-primary">Verify OTP</button>
-          <button type="button" onclick="resendOTP()" class="btn-secondary">Resend OTP</button>
+          <button type="button" id="resendBtn" onclick="resendOTP()" class="btn-secondary">Resend OTP</button>
         </div>
       </div>
 

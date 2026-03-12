@@ -9,7 +9,7 @@
 <body class="dashboard-page">
   <header class="nav">
     <button type="button" class="menu" aria-label="Toggle menu" onclick="toggle()">☰</button>
-    <h1>Dashboard</h1>
+    <h1>CareJR Dashboard</h1>
     <button type="button" class="btn-ghost" onclick="logout()">Logout</button>
   </header>
 
@@ -31,18 +31,58 @@
     </section>
 
     <section class="stats-grid" aria-label="Report statistics">
-      <article class="stat-card">
+      <article class="stat-card accent-total">
         <h3>Total Reports</h3>
         <p id="statTotal">0</p>
       </article>
-      <article class="stat-card">
-        <h3>High Risk Reports</h3>
+      <article class="stat-card accent-high">
+        <h3>High Risk (>=70%)</h3>
         <p id="statHighRisk">0</p>
+      </article>
+      <article class="stat-card accent-critical">
+        <h3>Critical (>=80%)</h3>
+        <p id="statCritical">0</p>
+      </article>
+      <article class="stat-card accent-moderate">
+        <h3>Moderate (30-59%)</h3>
+        <p id="statModerate">0</p>
+      </article>
+      <article class="stat-card accent-low">
+        <h3>Low (&lt;30%)</h3>
+        <p id="statLow">0</p>
+      </article>
+      <article class="stat-card accent-average">
+        <h3>Average Risk</h3>
+        <p id="statAverage">0%</p>
       </article>
       <article class="stat-card">
         <h3>Most Recent Visit</h3>
         <p id="statLastVisit">-</p>
       </article>
+    </section>
+
+    <section class="risk-breakdown" aria-label="Risk distribution chart">
+      <h3>Risk Distribution</h3>
+      <div class="meter-row">
+        <span>Low</span>
+        <div class="meter"><i id="meterLow"></i></div>
+        <strong id="meterLowLabel">0%</strong>
+      </div>
+      <div class="meter-row">
+        <span>Moderate</span>
+        <div class="meter"><i id="meterModerate"></i></div>
+        <strong id="meterModerateLabel">0%</strong>
+      </div>
+      <div class="meter-row">
+        <span>High</span>
+        <div class="meter"><i id="meterHigh"></i></div>
+        <strong id="meterHighLabel">0%</strong>
+      </div>
+      <div class="meter-row">
+        <span>Critical</span>
+        <div class="meter"><i id="meterCritical"></i></div>
+        <strong id="meterCriticalLabel">0%</strong>
+      </div>
     </section>
 
     <section class="quick-actions" aria-label="Quick actions">

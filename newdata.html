@@ -20,6 +20,7 @@
     </aside>
 
     <main class="right">
+      <div class="brand-chip">Clinical Intake</div>
       <h1>Patient Medical Entry Form</h1>
 
       <label for="patientName">Patient Name</label>
@@ -32,13 +33,32 @@
         required
       >
 
-      <label for="visitDate">Visit Date</label>
-      <input
-        type="date"
-        id="visitDate"
-        aria-label="Visit Date"
-        required
-      >
+      <div class="split-grid">
+        <div>
+          <label for="visitDate">Visit Date</label>
+          <input
+            type="date"
+            id="visitDate"
+            aria-label="Visit Date"
+            required
+          >
+        </div>
+        <div>
+          <label for="followUpDate">Follow-up Date</label>
+          <input
+            type="date"
+            id="followUpDate"
+            aria-label="Follow-up Date"
+          >
+        </div>
+      </div>
+
+      <label for="priority">Care Priority</label>
+      <select id="priority" aria-label="Care Priority">
+        <option value="Routine">Routine</option>
+        <option value="Urgent">Urgent</option>
+        <option value="Emergency">Emergency</option>
+      </select>
 
       <label for="conversation">Doctor-Patient Conversation</label>
       <textarea
