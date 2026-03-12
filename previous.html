@@ -34,8 +34,24 @@
       <p id="summaryEmergency">0</p>
     </article>
     <article class="mini-stat">
+      <h3>Urgent Priority</h3>
+      <p id="summaryUrgent">0</p>
+    </article>
+    <article class="mini-stat">
       <h3>Follow-up Due</h3>
       <p id="summaryFollowUpDue">0</p>
+    </article>
+    <article class="mini-stat">
+      <h3>Follow-up Overdue</h3>
+      <p id="summaryFollowUpOverdue">0</p>
+    </article>
+    <article class="mini-stat">
+      <h3>AI Needs Attention</h3>
+      <p id="summaryNeedsAttention">0</p>
+    </article>
+    <article class="mini-stat">
+      <h3>Average Pain</h3>
+      <p id="summaryAveragePain">0</p>
     </article>
     <article class="mini-stat">
       <h3>Average Risk</h3>
@@ -64,6 +80,14 @@
       <option value="Routine">Routine</option>
       <option value="Urgent">Urgent</option>
       <option value="Emergency">Emergency</option>
+    </select>
+
+    <select id="admissionFilter" aria-label="Admission filter" onchange="filterReports()">
+      <option value="all">Admission: All</option>
+      <option value="Not Admitted">Not Admitted</option>
+      <option value="Observation">Observation</option>
+      <option value="Admitted">Admitted</option>
+      <option value="ICU">ICU</option>
     </select>
 
     <select id="sortReports" aria-label="Sort reports" onchange="filterReports()">

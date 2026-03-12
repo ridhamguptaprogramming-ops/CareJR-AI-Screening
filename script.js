@@ -1,8 +1,11 @@
 const STORAGE_KEYS = {
   PHONE: "phone",
+  LOGIN_EMAIL: "loginEmail",
   SESSION_TOKEN: "sessionToken",
   GENERATED_OTP: "generatedOtp",
   OTP_SENT_AT: "otpSentAt",
+  OTP_IDENTIFIER: "otpIdentifier",
+  OTP_IDENTIFIER_TYPE: "otpIdentifierType",
   CLINIC_CODE: "clinicCode",
   NAME: "name",
   DOB: "dob",
@@ -12,6 +15,8 @@ const STORAGE_KEYS = {
   CITY: "city",
   PINCODE: "pincode",
   ADDRESS: "address",
+  EMAIL: "email",
+  INSURANCE_ID: "insuranceId",
   EMERGENCY_CONTACT: "emergencyContact",
   CURRENT_REPORT: "currentReport",
   REPORTS: "reports",
@@ -26,6 +31,15 @@ let breathInterval = null;
 let pulseInterval = null;
 let monitoringActive = false;
 let otpCooldownInterval = null;
+const API_BASE_URL = (() => {
+  const isLocalHost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  if (isLocalHost && window.location.port && window.location.port !== "5000") {
+    return "http://localhost:5000/api";
+  }
+  return "/api";
+})();
+const PHONE_PATTERN = /^\d{10}$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function byId(id) {
   return document.getElementById(id);
@@ -84,7 +98,7 @@ async function apiRequest(path, options = {}) {
   }
 
   try {
-    const response = await fetch(`/api${path}`, {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
       method,
       headers: requestHeaders,
       body
@@ -111,7 +125,11 @@ async function apiRequest(path, options = {}) {
         ok: false,
         status: response.status,
         data,
-        message: (data && (data.error || data.message)) || `Request failed (${response.status})`
+        message:
+          (data && (data.error || data.message)) ||
+          (response.status === 405
+            ? "Request failed (405). Start Python backend and open http://localhost:5000/login.html"
+            : `Request failed (${response.status})`)
       };
     }
 
@@ -163,6 +181,30 @@ function normalizePhoneInput(event) {
 function normalizeTextInput(event) {
   const input = event.target;
   input.value = input.value.replace(/[^\w\s-]/g, "").toUpperCase();
+}
+
+function normalizeEmail(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function resolveOtpIdentifier() {
+  const phoneInput = byId("phone");
+  const emailInput = byId("emailLogin");
+  const phone = phoneInput ? phoneInput.value.trim() : "";
+  const email = normalizeEmail(emailInput ? emailInput.value : "");
+
+  if (email) {
+    if (!EMAIL_PATTERN.test(email)) {
+      return { error: "Please enter a valid email address.", focus: emailInput };
+    }
+    return { type: "email", phone: "", email };
+  }
+
+  if (!PHONE_PATTERN.test(phone)) {
+    return { error: "Enter a valid 10-digit phone number or use email.", focus: phoneInput };
+  }
+
+  return { type: "phone", phone, email: "" };
 }
 
 function calculateAgeFromDOB(dobValue) {
@@ -224,11 +266,16 @@ function recommendTriageLevel(data) {
   const bpSystolic = Number(data.bpSystolic) || 0;
   const temperature = Number(data.temperature) || 0;
   const bloodSugar = Number(data.bloodSugar) || 0;
+  const painScore = Number(data.painScore) || 0;
+  const oxygenSupport = String(data.oxygenSupport || "").trim();
 
   if (
     risk >= 80 ||
     (spo2 > 0 && spo2 < 92) ||
+    oxygenSupport === "Ventilator" ||
+    oxygenSupport === "NIV" ||
     bpSystolic >= 180 ||
+    painScore >= 9 ||
     (pulseRate > 0 && (pulseRate >= 130 || pulseRate < 40)) ||
     (respRate > 0 && (respRate >= 30 || respRate < 8))
   ) {
@@ -239,7 +286,9 @@ function recommendTriageLevel(data) {
     risk >= 60 ||
     (temperature > 0 && temperature >= 101) ||
     (spo2 > 0 && spo2 < 95) ||
+    oxygenSupport === "Oxygen" ||
     bpSystolic >= 160 ||
+    painScore >= 7 ||
     (bloodSugar > 0 && (bloodSugar >= 250 || bloodSugar < 70)) ||
     (pulseRate > 0 && pulseRate > 110) ||
     (respRate > 0 && respRate > 24)
@@ -263,6 +312,8 @@ function updateTriageRecommendationField() {
   const respRate = byId("respRate");
   const bpSystolic = byId("bpSystolic");
   const bloodSugar = byId("bloodSugar");
+  const painScore = byId("painScore");
+  const oxygenSupport = byId("oxygenSupport");
 
   triageInput.value = recommendTriageLevel({
     risk: risk ? risk.innerText : 0,
@@ -271,7 +322,9 @@ function updateTriageRecommendationField() {
     pulseRate: pulseRate ? pulseRate.value : "",
     respRate: respRate ? respRate.value : "",
     bpSystolic: bpSystolic ? bpSystolic.value : "",
-    bloodSugar: bloodSugar ? bloodSugar.value : ""
+    bloodSugar: bloodSugar ? bloodSugar.value : "",
+    painScore: painScore ? painScore.value : "",
+    oxygenSupport: oxygenSupport ? oxygenSupport.value : ""
   });
 }
 
@@ -300,8 +353,7 @@ function applyDateLimits() {
 function setupFormHandlers() {
   const loginForm = byId("loginForm");
   if (loginForm) {
-    loginForm.addEventListener("submit", (event) => {
-      event.preventDefault();
+    const handleOtpAction = () => {
       const otpBox = byId("otpBox");
       const otpVisible = otpBox && !otpBox.hidden;
       if (otpVisible) {
@@ -309,7 +361,28 @@ function setupFormHandlers() {
       } else {
         sendOTP();
       }
+    };
+
+    loginForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      handleOtpAction();
     });
+
+    loginForm.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") {
+        return;
+      }
+      event.preventDefault();
+      handleOtpAction();
+    });
+
+    const sendOtpBtn = byId("sendOtpBtn");
+    if (sendOtpBtn) {
+      sendOtpBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        handleOtpAction();
+      });
+    }
   }
 
   const detailsForm = byId("detailsForm");
@@ -325,6 +398,13 @@ function setupFormHandlers() {
     phoneInput.addEventListener("input", normalizePhoneInput);
   }
 
+  const emailLoginInput = byId("emailLogin");
+  if (emailLoginInput && emailLoginInput.tagName === "INPUT") {
+    emailLoginInput.addEventListener("blur", () => {
+      emailLoginInput.value = normalizeEmail(emailLoginInput.value);
+    });
+  }
+
   const emergencyContact = byId("emergencyContact");
   if (emergencyContact && emergencyContact.tagName === "INPUT") {
     emergencyContact.addEventListener("input", normalizePhoneInput);
@@ -334,6 +414,13 @@ function setupFormHandlers() {
   if (pincodeInput && pincodeInput.tagName === "INPUT") {
     pincodeInput.addEventListener("input", (event) => {
       event.target.value = event.target.value.replace(/\D/g, "").slice(0, 6);
+    });
+  }
+
+  const insuranceInput = byId("insuranceId");
+  if (insuranceInput && insuranceInput.tagName === "INPUT") {
+    insuranceInput.addEventListener("input", (event) => {
+      event.target.value = event.target.value.replace(/[^\w-]/g, "").toUpperCase();
     });
   }
 
@@ -383,6 +470,8 @@ function setupFormHandlers() {
     "spo2",
     "pulseRate",
     "respRate",
+    "painScore",
+    "oxygenSupport",
     "bpSystolic",
     "bpDiastolic",
     "bloodSugar"
@@ -390,6 +479,7 @@ function setupFormHandlers() {
     const input = byId(id);
     if (input) {
       input.addEventListener("input", updateTriageRecommendationField);
+      input.addEventListener("change", updateTriageRecommendationField);
     }
   });
 }
@@ -438,6 +528,24 @@ function hydrateSharedData() {
   const addressInput = byId("address");
   if (addressInput && addressInput.tagName === "INPUT" && !addressInput.value) {
     addressInput.value = localStorage.getItem(STORAGE_KEYS.ADDRESS) || "";
+  }
+
+  const emailInput = byId("email");
+  if (emailInput && emailInput.tagName === "INPUT" && !emailInput.value) {
+    emailInput.value = localStorage.getItem(STORAGE_KEYS.EMAIL) || "";
+  }
+
+  const emailLoginInput = byId("emailLogin");
+  if (emailLoginInput && emailLoginInput.tagName === "INPUT" && !emailLoginInput.value) {
+    emailLoginInput.value =
+      localStorage.getItem(STORAGE_KEYS.LOGIN_EMAIL) ||
+      localStorage.getItem(STORAGE_KEYS.EMAIL) ||
+      "";
+  }
+
+  const insuranceInput = byId("insuranceId");
+  if (insuranceInput && insuranceInput.tagName === "INPUT" && !insuranceInput.value) {
+    insuranceInput.value = localStorage.getItem(STORAGE_KEYS.INSURANCE_ID) || "";
   }
 
   const bloodGroupInput = byId("bloodGroup");
@@ -490,6 +598,16 @@ function hydrateSharedData() {
     address.innerText = localStorage.getItem(STORAGE_KEYS.ADDRESS) || "-";
   }
 
+  const email = byId("email");
+  if (email && email.tagName !== "INPUT") {
+    email.innerText = localStorage.getItem(STORAGE_KEYS.EMAIL) || "-";
+  }
+
+  const insurance = byId("insuranceId");
+  if (insurance && insurance.tagName !== "INPUT") {
+    insurance.innerText = localStorage.getItem(STORAGE_KEYS.INSURANCE_ID) || "-";
+  }
+
   const emergency = byId("emergencyContact");
   if (emergency && emergency.tagName !== "INPUT") {
     emergency.innerText = localStorage.getItem(STORAGE_KEYS.EMERGENCY_CONTACT) || "-";
@@ -539,6 +657,8 @@ function restoreDraftIfAvailable() {
     ["chiefComplaint", "chiefComplaint"],
     ["conversation", "conversation"],
     ["knownAllergies", "knownAllergies"],
+    ["painScore", "painScore"],
+    ["oxygenSupport", "oxygenSupport"],
     ["temperature", "temperature"],
     ["spo2", "spo2"],
     ["weight", "weight"],
@@ -613,6 +733,7 @@ async function syncProfileFromServer() {
   const profile = response.data.profile;
   const keyMap = [
     [STORAGE_KEYS.PHONE, "phone"],
+    [STORAGE_KEYS.LOGIN_EMAIL, "loginEmail"],
     [STORAGE_KEYS.CLINIC_CODE, "clinicCode"],
     [STORAGE_KEYS.NAME, "name"],
     [STORAGE_KEYS.DOB, "dob"],
@@ -622,6 +743,8 @@ async function syncProfileFromServer() {
     [STORAGE_KEYS.CITY, "city"],
     [STORAGE_KEYS.PINCODE, "pincode"],
     [STORAGE_KEYS.ADDRESS, "address"],
+    [STORAGE_KEYS.EMAIL, "email"],
+    [STORAGE_KEYS.INSURANCE_ID, "insuranceId"],
     [STORAGE_KEYS.EMERGENCY_CONTACT, "emergencyContact"]
   ];
 
@@ -730,25 +853,23 @@ function startOtpCooldown(totalSeconds = 20) {
 }
 
 async function sendOTP() {
-  const phoneInput = byId("phone");
-  if (!phoneInput) {
+  const identifier = resolveOtpIdentifier();
+  if (identifier.error) {
+    showMessage("authMessage", identifier.error, "error");
+    if (identifier.focus) {
+      identifier.focus.focus();
+    }
     return;
   }
 
+  const loginPhone = identifier.phone;
+  const loginEmail = identifier.email;
   const clinicCodeInput = byId("clinicCode");
-
-  const phone = phoneInput.value.trim();
-  if (!/^\d{10}$/.test(phone)) {
-    showMessage("authMessage", "Enter a valid 10-digit phone number.", "error");
-    phoneInput.focus();
-    return;
-  }
-
   const clinicCode = clinicCodeInput ? clinicCodeInput.value.trim().toUpperCase() : "";
   localStorage.removeItem(STORAGE_KEYS.SESSION_TOKEN);
   const response = await apiRequest("/send-otp", {
     method: "POST",
-    body: JSON.stringify({ phone, clinicCode }),
+    body: JSON.stringify({ phone: loginPhone, email: loginEmail, clinicCode }),
     skipAuth: true
   });
 
@@ -759,7 +880,19 @@ async function sendOTP() {
 
   generatedOtp = String((response.data && response.data.demoOtp) || "");
   localStorage.setItem(STORAGE_KEYS.GENERATED_OTP, generatedOtp);
-  localStorage.setItem(STORAGE_KEYS.PHONE, phone);
+  localStorage.setItem(STORAGE_KEYS.OTP_IDENTIFIER, loginEmail || loginPhone);
+  localStorage.setItem(STORAGE_KEYS.OTP_IDENTIFIER_TYPE, identifier.type);
+  if (loginPhone) {
+    localStorage.setItem(STORAGE_KEYS.PHONE, loginPhone);
+  } else {
+    localStorage.removeItem(STORAGE_KEYS.PHONE);
+  }
+  if (loginEmail) {
+    localStorage.setItem(STORAGE_KEYS.LOGIN_EMAIL, loginEmail);
+    localStorage.setItem(STORAGE_KEYS.EMAIL, loginEmail);
+  } else {
+    localStorage.removeItem(STORAGE_KEYS.LOGIN_EMAIL);
+  }
   localStorage.setItem(STORAGE_KEYS.OTP_SENT_AT, String(Date.now()));
   localStorage.setItem(STORAGE_KEYS.CLINIC_CODE, clinicCode);
 
@@ -774,7 +907,8 @@ async function sendOTP() {
   }
 
   startOtpCooldown(20);
-  showMessage("authMessage", `OTP sent successfully. Demo OTP: ${generatedOtp || "sent"}`);
+  const sentTo = loginEmail || loginPhone || "selected contact";
+  showMessage("authMessage", `OTP sent to ${sentTo}. Demo OTP: ${generatedOtp || "sent"}`);
 }
 
 function resendOTP() {
@@ -804,7 +938,26 @@ async function verify() {
   }
 
   const entered = otpInput.value.trim();
-  const phone = localStorage.getItem(STORAGE_KEYS.PHONE) || "";
+  const identifierType = localStorage.getItem(STORAGE_KEYS.OTP_IDENTIFIER_TYPE) || "";
+  const identifierValue = localStorage.getItem(STORAGE_KEYS.OTP_IDENTIFIER) || "";
+  const storedPhone = localStorage.getItem(STORAGE_KEYS.PHONE) || "";
+  const storedEmail = normalizeEmail(localStorage.getItem(STORAGE_KEYS.LOGIN_EMAIL) || "");
+  let phone = "";
+  let email = "";
+
+  if (identifierType === "phone") {
+    phone = identifierValue || storedPhone;
+  } else if (identifierType === "email") {
+    email = normalizeEmail(identifierValue || storedEmail);
+  } else if (EMAIL_PATTERN.test(identifierValue)) {
+    email = normalizeEmail(identifierValue);
+  } else if (PHONE_PATTERN.test(identifierValue)) {
+    phone = identifierValue;
+  } else if (storedEmail) {
+    email = storedEmail;
+  } else {
+    phone = storedPhone;
+  }
 
   if (!/^\d{4}$/.test(entered)) {
     showMessage("authMessage", "OTP must be a 4-digit number.", "error");
@@ -812,14 +965,14 @@ async function verify() {
     return;
   }
 
-  if (!phone) {
-    showMessage("authMessage", "Phone number missing. Please request OTP again.", "error");
+  if (!phone && !email) {
+    showMessage("authMessage", "Login identifier missing. Please request OTP again.", "error");
     return;
   }
 
   const response = await apiRequest("/verify-otp", {
     method: "POST",
-    body: JSON.stringify({ phone, otp: entered }),
+    body: JSON.stringify({ phone, email, otp: entered }),
     skipAuth: true
   });
 
@@ -830,8 +983,23 @@ async function verify() {
 
   localStorage.removeItem(STORAGE_KEYS.GENERATED_OTP);
   localStorage.removeItem(STORAGE_KEYS.OTP_SENT_AT);
+  localStorage.removeItem(STORAGE_KEYS.OTP_IDENTIFIER);
+  localStorage.removeItem(STORAGE_KEYS.OTP_IDENTIFIER_TYPE);
   localStorage.setItem(STORAGE_KEYS.SESSION_TOKEN, response.data.sessionToken || "");
-  localStorage.setItem(STORAGE_KEYS.PHONE, response.data.phone || phone);
+  const responsePhone = String((response.data && response.data.phone) || "").trim();
+  const responseEmail = normalizeEmail((response.data && response.data.email) || "");
+
+  if (responsePhone) {
+    localStorage.setItem(STORAGE_KEYS.PHONE, responsePhone);
+  } else {
+    localStorage.removeItem(STORAGE_KEYS.PHONE);
+  }
+
+  if (responseEmail) {
+    localStorage.setItem(STORAGE_KEYS.LOGIN_EMAIL, responseEmail);
+    localStorage.setItem(STORAGE_KEYS.EMAIL, responseEmail);
+  }
+
   window.location.href = "details.html";
 }
 
@@ -843,11 +1011,13 @@ async function submitData() {
   const city = byId("city");
   const pincode = byId("pincode");
   const address = byId("address");
+  const email = byId("email");
+  const insuranceId = byId("insuranceId");
   const bloodGroup = byId("bloodGroup");
   const emergencyContact = byId("emergencyContact");
   const phone = byId("phone");
 
-  if (!name || !dob || !gender || !state || !city || !pincode || !address || !bloodGroup || !emergencyContact) {
+  if (!name || !dob || !gender || !state || !city || !pincode || !address || !email || !bloodGroup || !emergencyContact) {
     return;
   }
 
@@ -858,6 +1028,8 @@ async function submitData() {
   const cityValue = city.value.trim();
   const pincodeValue = pincode.value.trim();
   const addressValue = address.value.trim();
+  const emailValue = email.value.trim().toLowerCase();
+  const insuranceValue = insuranceId ? insuranceId.value.trim().toUpperCase() : "";
   const bloodGroupValue = bloodGroup.value;
   const emergencyValue = emergencyContact.value.trim();
   const phoneValue = phone ? phone.value.trim() : "";
@@ -912,6 +1084,12 @@ async function submitData() {
     return;
   }
 
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+    showMessage("profileMessage", "Please enter a valid email address.", "error");
+    email.focus();
+    return;
+  }
+
   if (!/^\d{10}$/.test(emergencyValue)) {
     showMessage("profileMessage", "Emergency contact must be a valid 10-digit number.", "error");
     emergencyContact.focus();
@@ -932,6 +1110,8 @@ async function submitData() {
   localStorage.setItem(STORAGE_KEYS.CITY, cityValue);
   localStorage.setItem(STORAGE_KEYS.PINCODE, pincodeValue);
   localStorage.setItem(STORAGE_KEYS.ADDRESS, addressValue);
+  localStorage.setItem(STORAGE_KEYS.EMAIL, emailValue);
+  localStorage.setItem(STORAGE_KEYS.INSURANCE_ID, insuranceValue);
   localStorage.setItem(STORAGE_KEYS.EMERGENCY_CONTACT, emergencyValue);
 
   const response = await apiRequest("/profile", {
@@ -947,6 +1127,8 @@ async function submitData() {
       city: cityValue,
       pincode: pincodeValue,
       address: addressValue,
+      email: emailValue,
+      insuranceId: insuranceValue,
       emergencyContact: emergencyValue
     })
   });
@@ -971,9 +1153,12 @@ function toggle() {
 async function logout() {
   await apiRequest("/logout", { method: "POST" });
   localStorage.removeItem(STORAGE_KEYS.PHONE);
+  localStorage.removeItem(STORAGE_KEYS.LOGIN_EMAIL);
   localStorage.removeItem(STORAGE_KEYS.SESSION_TOKEN);
   localStorage.removeItem(STORAGE_KEYS.GENERATED_OTP);
   localStorage.removeItem(STORAGE_KEYS.OTP_SENT_AT);
+  localStorage.removeItem(STORAGE_KEYS.OTP_IDENTIFIER);
+  localStorage.removeItem(STORAGE_KEYS.OTP_IDENTIFIER_TYPE);
   localStorage.removeItem(STORAGE_KEYS.CLINIC_CODE);
   localStorage.removeItem(STORAGE_KEYS.NAME);
   localStorage.removeItem(STORAGE_KEYS.DOB);
@@ -983,6 +1168,8 @@ async function logout() {
   localStorage.removeItem(STORAGE_KEYS.CITY);
   localStorage.removeItem(STORAGE_KEYS.PINCODE);
   localStorage.removeItem(STORAGE_KEYS.ADDRESS);
+  localStorage.removeItem(STORAGE_KEYS.EMAIL);
+  localStorage.removeItem(STORAGE_KEYS.INSURANCE_ID);
   localStorage.removeItem(STORAGE_KEYS.EMERGENCY_CONTACT);
   localStorage.removeItem(STORAGE_KEYS.CURRENT_REPORT);
   localStorage.removeItem(STORAGE_KEYS.DRAFT_REPORT);
@@ -1253,6 +1440,8 @@ function buildCurrentReport() {
   const chiefComplaint = byId("chiefComplaint");
   const conversation = byId("conversation");
   const knownAllergies = byId("knownAllergies");
+  const painScore = byId("painScore");
+  const oxygenSupport = byId("oxygenSupport");
   const temperature = byId("temperature");
   const spo2 = byId("spo2");
   const weight = byId("weight");
@@ -1291,6 +1480,8 @@ function buildCurrentReport() {
     chiefComplaint: chiefComplaint ? chiefComplaint.value.trim() : "",
     conversation: (conversation && conversation.value.trim()) || "",
     knownAllergies: knownAllergies ? knownAllergies.value.trim() : "",
+    painScore: painScore ? painScore.value : "",
+    oxygenSupport: oxygenSupport ? oxygenSupport.value : "Room Air",
     temperature: temperature ? temperature.value : "",
     spo2: spo2 ? spo2.value : "",
     weight: weight ? weight.value : "",
@@ -1387,6 +1578,12 @@ function generateReport() {
     return;
   }
 
+  if (report.painScore && (Number(report.painScore) < 0 || Number(report.painScore) > 10)) {
+    showMessage("newDataMessage", "Pain score must be between 0 and 10.", "error");
+    byId("painScore").focus();
+    return;
+  }
+
   if (report.weight && report.height) {
     const computedBmi = calculateBMI(report.weight, report.height);
     report.bmi = computedBmi;
@@ -1431,6 +1628,7 @@ function generateReport() {
     <p><strong>Consultation:</strong> ${safeText(report.consultationType || "-")}</p>
     <p><strong>Complaint:</strong> ${safeText(report.chiefComplaint || "-")}</p>
     <p><strong>Allergies:</strong> ${safeText(report.knownAllergies || "-")}</p>
+    <p><strong>Pain/Oxygen:</strong> Pain ${safeText(report.painScore || "-")}/10, ${safeText(report.oxygenSupport || "Room Air")}</p>
     <p><strong>Vitals:</strong> Temp ${safeText(report.temperature || "-")}F, SpO2 ${safeText(report.spo2 || "-")}%, Weight ${safeText(report.weight || "-")}kg, Height ${safeText(report.height || "-")}cm, BMI ${safeText(report.bmi || "-")}, Pulse ${safeText(report.pulseRate || "-")} BPM, Resp ${safeText(report.respRate || "-")}/min, Sugar ${safeText(report.bloodSugar || "-")} mg/dL, BP ${safeText(report.bpSystolic || "-")}/${safeText(report.bpDiastolic || "-")}</p>
     <p><strong>Symptoms:</strong> ${safeText(report.symptoms)}</p>
     <p><strong>Diagnosis:</strong> ${safeText(report.diagnosis || "-")}</p>
@@ -1462,6 +1660,8 @@ function saveDraft() {
     chiefComplaint: (byId("chiefComplaint") && byId("chiefComplaint").value.trim()) || "",
     conversation: (byId("conversation") && byId("conversation").value.trim()) || "",
     knownAllergies: (byId("knownAllergies") && byId("knownAllergies").value.trim()) || "",
+    painScore: (byId("painScore") && byId("painScore").value) || "",
+    oxygenSupport: (byId("oxygenSupport") && byId("oxygenSupport").value) || "Room Air",
     temperature: (byId("temperature") && byId("temperature").value) || "",
     spo2: (byId("spo2") && byId("spo2").value) || "",
     weight: (byId("weight") && byId("weight").value) || "",
@@ -1494,6 +1694,8 @@ function resetNewDataForm() {
     "followUpDate",
     "conversation",
     "knownAllergies",
+    "painScore",
+    "oxygenSupport",
     "temperature",
     "spo2",
     "weight",
@@ -1525,6 +1727,7 @@ function resetNewDataForm() {
   const after = byId("after");
   const priority = byId("priority");
   const consultationType = byId("consultationType");
+  const oxygenSupport = byId("oxygenSupport");
   const patientAge = byId("patientAge");
 
   if (risk) {
@@ -1549,6 +1752,10 @@ function resetNewDataForm() {
 
   if (consultationType) {
     consultationType.value = "In-person";
+  }
+
+  if (oxygenSupport) {
+    oxygenSupport.value = "Room Air";
   }
 
   if (patientAge) {
@@ -1637,6 +1844,8 @@ function downloadPDF(index) {
   const consultationType = getReportField(data, ["consultationType"], "In-person");
   const chiefComplaint = getReportField(data, ["chiefComplaint"], "-");
   const knownAllergies = getReportField(data, ["knownAllergies"], "-");
+  const painScore = getReportField(data, ["painScore"], "-");
+  const oxygenSupport = getReportField(data, ["oxygenSupport"], "Room Air");
   const temperature = getReportField(data, ["temperature"], "-");
   const spo2 = getReportField(data, ["spo2"], "-");
   const weight = getReportField(data, ["weight"], "-");
@@ -1668,6 +1877,7 @@ function downloadPDF(index) {
   text += `Consultation Type: ${consultationType}\n`;
   text += `Chief Complaint: ${chiefComplaint}\n`;
   text += `Known Allergies: ${knownAllergies}\n`;
+  text += `Pain/Oxygen: Pain ${painScore}/10, ${oxygenSupport}\n`;
   text += `Vitals: Temp ${temperature}F, SpO2 ${spo2}%, Weight ${weight}kg, Height ${height}cm, BMI ${bmi}, Pulse ${pulseRate} BPM, Resp ${respRate}/min, Sugar ${bloodSugar} mg/dL, BP ${bpSystolic}/${bpDiastolic}\n`;
   text += `Status: ${status}\n`;
   text += `Symptoms: ${symptoms}\n`;
@@ -1708,6 +1918,8 @@ function matchesFilters(report) {
   const diagnosis = String(getReportField(report, ["diagnosis"], "")).toLowerCase();
   const doctor = String(getReportField(report, ["doctor"], "")).toLowerCase();
   const tests = String(getReportField(report, ["tests"], "")).toLowerCase();
+  const pain = String(getReportField(report, ["painScore"], "")).toLowerCase();
+  const oxygen = String(getReportField(report, ["oxygenSupport"], "")).toLowerCase();
   const priority = String(getReportField(report, ["priority"], "")).toLowerCase();
   const triage = String(getReportField(report, ["triageRecommendation", "priority"], "")).toLowerCase();
   const notes = String(getReportField(report, ["clinicalNotes"], "")).toLowerCase();
@@ -1726,7 +1938,7 @@ function matchesFilters(report) {
   }
 
   if (search) {
-    const haystack = `${patient} ${complaint} ${symptoms} ${diagnosis} ${doctor} ${tests} ${priority} ${triage} ${notes}`;
+    const haystack = `${patient} ${complaint} ${symptoms} ${diagnosis} ${doctor} ${tests} ${pain} ${oxygen} ${priority} ${triage} ${notes}`;
     if (!haystack.includes(search)) {
       return false;
     }
@@ -1794,6 +2006,13 @@ function updatePreviousSummary(filteredEntries, totalStored) {
   const emergencyPriority = filteredEntries.filter(
     (entry) => getReportField(entry.report, ["priority"], "Routine") === "Emergency"
   ).length;
+  const urgentPriority = filteredEntries.filter(
+    (entry) => getReportField(entry.report, ["priority"], "Routine") === "Urgent"
+  ).length;
+  const needsAttention = filteredEntries.filter((entry) => {
+    const triage = getReportField(entry.report, ["triageRecommendation", "priority"], "Routine");
+    return triage === "Urgent" || triage === "Emergency";
+  }).length;
   const today = new Date().toISOString().split("T")[0];
   const followUpDue = filteredEntries.filter((entry) => {
     const followUp = getReportField(entry.report, ["followUpDate"], "");
@@ -1807,7 +2026,9 @@ function updatePreviousSummary(filteredEntries, totalStored) {
   const summaryStored = byId("summaryStored");
   const summaryCritical = byId("summaryCritical");
   const summaryEmergency = byId("summaryEmergency");
+  const summaryUrgent = byId("summaryUrgent");
   const summaryFollowUpDue = byId("summaryFollowUpDue");
+  const summaryNeedsAttention = byId("summaryNeedsAttention");
   const summaryAverage = byId("summaryAverage");
 
   if (summaryVisible) {
@@ -1822,8 +2043,14 @@ function updatePreviousSummary(filteredEntries, totalStored) {
   if (summaryEmergency) {
     summaryEmergency.textContent = String(emergencyPriority);
   }
+  if (summaryUrgent) {
+    summaryUrgent.textContent = String(urgentPriority);
+  }
   if (summaryFollowUpDue) {
     summaryFollowUpDue.textContent = String(followUpDue);
+  }
+  if (summaryNeedsAttention) {
+    summaryNeedsAttention.textContent = String(needsAttention);
   }
   if (summaryAverage) {
     summaryAverage.textContent = `${avgRisk}%`;
@@ -1868,6 +2095,8 @@ function loadReports() {
     const consultationType = getReportField(report, ["consultationType"], "In-person");
     const complaint = getReportField(report, ["chiefComplaint"], "-");
     const allergies = getReportField(report, ["knownAllergies"], "-");
+    const painScore = getReportField(report, ["painScore"], "-");
+    const oxygenSupport = getReportField(report, ["oxygenSupport"], "Room Air");
     const temperature = getReportField(report, ["temperature"], "-");
     const spo2 = getReportField(report, ["spo2"], "-");
     const weight = getReportField(report, ["weight"], "-");
@@ -1903,6 +2132,7 @@ function loadReports() {
       <p><strong>Consultation:</strong> ${safeText(consultationType)}</p>
       <p><strong>Complaint:</strong> ${safeText(complaint)}</p>
       <p><strong>Allergies:</strong> ${safeText(allergies)}</p>
+      <p><strong>Pain/Oxygen:</strong> Pain ${safeText(painScore)}/10, ${safeText(oxygenSupport)}</p>
       <p><strong>Vitals:</strong> Temp ${safeText(temperature)}F, SpO2 ${safeText(spo2)}%, Weight ${safeText(weight)}kg, Height ${safeText(height)}cm, BMI ${safeText(bmi)}, Pulse ${safeText(pulseRate)} BPM, Resp ${safeText(respRate)}/min, Sugar ${safeText(bloodSugar)} mg/dL, BP ${safeText(bpSystolic)}/${safeText(bpDiastolic)}</p>
       <p><strong>Status:</strong> ${safeText(status)}</p>
       <p><strong>Symptoms:</strong> ${safeText(symptoms)}</p>
@@ -2029,6 +2259,10 @@ function updateDashboardStats() {
   const triageEmergencyCount = reports.filter(
     (report) => getReportField(report, ["triageRecommendation", "priority"], "Routine") === "Emergency"
   ).length;
+  const needsAttentionCount = reports.filter((report) => {
+    const triage = getReportField(report, ["triageRecommendation", "priority"], "Routine");
+    return triage === "Urgent" || triage === "Emergency";
+  }).length;
   const reportsToday = reports.filter(
     (report) => getReportField(report, ["visitDate", "date"], "") === today
   ).length;
@@ -2036,6 +2270,9 @@ function updateDashboardStats() {
     const followUp = getReportField(report, ["followUpDate"], "");
     return followUp && followUp <= today;
   }).length;
+  const followUpToday = reports.filter(
+    (report) => getReportField(report, ["followUpDate"], "") === today
+  ).length;
 
   let lastVisit = "-";
   if (reports.length > 0) {
@@ -2060,6 +2297,8 @@ function updateDashboardStats() {
   const statEmergency = byId("statEmergency");
   const statToday = byId("statToday");
   const statFollowUpDue = byId("statFollowUpDue");
+  const statFollowUpToday = byId("statFollowUpToday");
+  const statNeedsAttention = byId("statNeedsAttention");
   const statTriageEmergency = byId("statTriageEmergency");
   const statLastVisit = byId("statLastVisit");
 
@@ -2105,6 +2344,14 @@ function updateDashboardStats() {
 
   if (statFollowUpDue) {
     statFollowUpDue.innerText = String(followUpDue);
+  }
+
+  if (statFollowUpToday) {
+    statFollowUpToday.innerText = String(followUpToday);
+  }
+
+  if (statNeedsAttention) {
+    statNeedsAttention.innerText = String(needsAttentionCount);
   }
 
   if (statTriageEmergency) {

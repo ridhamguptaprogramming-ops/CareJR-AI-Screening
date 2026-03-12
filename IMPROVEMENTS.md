@@ -1,4 +1,4 @@
-# CareJR AI Screening - UI and Feature Improvements (v7)
+# CareJR AI Screening - UI and Feature Improvements (v9)
 
 ## Updated Files
 - `app.py`
@@ -14,11 +14,14 @@
 ## 1. Login UI Improvements
 ### Added new field
 - **Clinic / Facility Code** (`clinicCode`) in login.
+- **Email Login** (`emailLogin`) in login.
+- Phone input is optional when email is used.
 
 ### Logic updates
 - Clinic code is sanitized and stored in localStorage.
 - Clinic code is shown later on dashboard profile summary.
-- OTP send/verify now works through Python backend APIs.
+- OTP send/verify now supports **phone or email** through Python backend APIs.
+- Login identifier type is tracked during OTP flow for safer verify/resend behavior.
 
 ## 2. Profile Page Improvements (`details.html`)
 ### Added new fields
@@ -26,6 +29,8 @@
 - **City** (`city`)
 - **Pincode** (`pincode`)
 - **Address** (`address`)
+- **Email** (`email`)
+- **Insurance ID** (`insuranceId`)
 - **Blood Group** (`bloodGroup`)
 - **Emergency Contact** (`emergencyContact`)
 
@@ -50,6 +55,8 @@
 - Emergency cases
 - Reports Today
 - Follow-up Due
+- Follow-up Today
+- AI Needs Attention
 - AI Emergency Flag
 - Existing risk counters retained and updated.
 
@@ -62,6 +69,8 @@
 - Consultation Type
 - Chief Complaint
 - Known Allergies
+- Pain Score
+- Oxygen Support
 - Vitals:
   - Temperature
   - SpO2
@@ -95,10 +104,13 @@
 ### Added new controls
 - **Priority filter** (`priorityFilter`): All / Routine / Urgent / Emergency
 - Additional sort option: **Sort by Priority**
+- Added triage filter with routine/urgent/emergency options.
 
 ### Added new summary counters
 - Emergency priority count (`summaryEmergency`)
+- Urgent priority count (`summaryUrgent`)
 - Follow-up due count (`summaryFollowUpDue`)
+- AI needs-attention count (`summaryNeedsAttention`)
 - Existing visible/stored/critical/average counters retained.
 
 ### Listing improvements
@@ -130,12 +142,15 @@
 - `GET /api/profile`
 - `POST /api/profile`
 - `GET /api/reports`
+- `GET /api/stats`
 - `POST /api/reports`
 - `DELETE /api/reports`
 - `DELETE /api/reports/<id>`
 
 ### Storage
 - SQLite database (`carejr.db`) with tables for users, OTP, sessions, and reports.
+- Users table now stores email, insurance id, and separate contact phone.
+- OTP/session identity now supports either a phone account or an email account.
 - Session-based authentication with bearer token.
 
 ### Run

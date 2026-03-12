@@ -16,7 +16,9 @@ OTP_TTL_SECONDS = 180
 SESSION_TTL_HOURS = 24 * 7
 
 PHONE_RE = re.compile(r"^\d{10}$")
+EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 PINCODE_RE = re.compile(r"^\d{6}$")
+EMAIL_ACCOUNT_PREFIX = "email:"
 
 app = Flask(__name__, static_folder=None)
 
@@ -42,6 +44,16 @@ def get_db() -> sqlite3.Connection:
     return connection
 
 
+def ensure_columns(db: sqlite3.Connection, table: str, required_columns: Dict[str, str]) -> None:
+    existing = {
+        str(row["name"])
+        for row in db.execute(f"PRAGMA table_info({table})").fetchall()
+    }
+    for column, column_type in required_columns.items():
+        if column not in existing:
+            db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}")
+
+
 def init_db() -> None:
     with get_db() as db:
         db.execute(
@@ -57,6 +69,9 @@ def init_db() -> None:
                 city TEXT DEFAULT '',
                 pincode TEXT DEFAULT '',
                 address TEXT DEFAULT '',
+                contact_phone TEXT DEFAULT '',
+                email TEXT DEFAULT '',
+                insurance_id TEXT DEFAULT '',
                 emergency_contact TEXT DEFAULT '',
                 updated_at TEXT NOT NULL
             )
@@ -97,6 +112,16 @@ def init_db() -> None:
             """
         )
 
+        ensure_columns(
+            db,
+            "users",
+            {
+                "contact_phone": "TEXT DEFAULT ''",
+                "email": "TEXT DEFAULT ''",
+                "insurance_id": "TEXT DEFAULT ''",
+            },
+        )
+
 
 def cleanup_expired_data() -> None:
     now = isoformat_utc(utc_now())
@@ -107,6 +132,40 @@ def cleanup_expired_data() -> None:
 
 def json_error(message: str, status: int = 400):
     return jsonify({"ok": False, "error": message}), status
+
+
+def normalize_email(value: Any) -> str:
+    return str(value or "").strip().lower()
+
+
+def is_allowed_dev_origin(origin: str) -> bool:
+    return bool(re.match(r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$", origin))
+
+
+def parse_login_identifier(data: Dict[str, Any]) -> Tuple[Optional[str], Optional[str], str, str]:
+    phone = str(data.get("phone", "")).strip()
+    email = normalize_email(data.get("email", ""))
+
+    if email:
+        if not EMAIL_RE.match(email):
+            return None, None, "", "Please enter a valid email address."
+        return f"{EMAIL_ACCOUNT_PREFIX}{email}", "email", "", email
+
+    if phone:
+        if not PHONE_RE.match(phone):
+            return None, None, "", "Enter a valid 10-digit phone number."
+        return phone, "phone", phone, ""
+
+    return None, None, "", "Enter a valid 10-digit phone number or email address."
+
+
+def split_account_identifier(account_id: str) -> Tuple[str, str]:
+    account = str(account_id or "").strip()
+    if account.startswith(EMAIL_ACCOUNT_PREFIX):
+        return "", normalize_email(account[len(EMAIL_ACCOUNT_PREFIX):])
+    if PHONE_RE.match(account):
+        return account, ""
+    return "", ""
 
 
 def get_bearer_phone() -> Tuple[Optional[str], Optional[str]]:
@@ -154,6 +213,8 @@ def normalize_profile_payload(data: Dict[str, Any]) -> Dict[str, str]:
         "city": str(data.get("city", "")).strip(),
         "pincode": str(data.get("pincode", "")).strip(),
         "address": str(data.get("address", "")).strip(),
+        "email": str(data.get("email", "")).strip().lower(),
+        "insuranceId": str(data.get("insuranceId", "")).strip().upper(),
         "emergencyContact": str(data.get("emergencyContact", "")).strip(),
     }
 
@@ -164,6 +225,22 @@ def _before_request():
         cleanup_expired_data()
 
 
+@app.after_request
+def _after_request(response):
+    origin = str(request.headers.get("Origin", "")).strip()
+    if origin and is_allowed_dev_origin(origin):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
+        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS"
+    return response
+
+
+@app.route("/api/<path:_path>", methods=["OPTIONS"])
+def api_options(_path: str):
+    return ("", 204)
+
+
 @app.route("/api/health", methods=["GET"])
 def health_check():
     return jsonify({"ok": True, "service": "carejr-python-backend"})
@@ -172,11 +249,12 @@ def health_check():
 @app.route("/api/send-otp", methods=["POST"])
 def send_otp():
     data = request.get_json(silent=True) or {}
-    phone = str(data.get("phone", "")).strip()
-    clinic_code = str(data.get("clinicCode", "")).strip().upper()
+    account_id, identifier_type, login_phone, login_email_or_error = parse_login_identifier(data)
+    if not account_id or not identifier_type:
+        return json_error(login_email_or_error, 400)
 
-    if not PHONE_RE.match(phone):
-        return json_error("Enter a valid 10-digit phone number.", 400)
+    login_email = login_email_or_error
+    clinic_code = str(data.get("clinicCode", "")).strip().upper()
 
     otp = f"{secrets.randbelow(9000) + 1000:04d}"
     now = utc_now()
@@ -188,17 +266,25 @@ def send_otp():
             INSERT INTO otps (phone, otp, created_at, expires_at, used)
             VALUES (?, ?, ?, ?, 0)
             """,
-            (phone, otp, isoformat_utc(now), isoformat_utc(expires_at)),
+            (account_id, otp, isoformat_utc(now), isoformat_utc(expires_at)),
         )
         db.execute(
             """
-            INSERT INTO users (phone, clinic_code, updated_at)
-            VALUES (?, ?, ?)
+            INSERT INTO users (phone, clinic_code, contact_phone, email, updated_at)
+            VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(phone) DO UPDATE SET
                 clinic_code = excluded.clinic_code,
+                contact_phone = CASE
+                    WHEN excluded.contact_phone <> '' THEN excluded.contact_phone
+                    ELSE users.contact_phone
+                END,
+                email = CASE
+                    WHEN users.email = '' AND excluded.email <> '' THEN excluded.email
+                    ELSE users.email
+                END,
                 updated_at = excluded.updated_at
             """,
-            (phone, clinic_code, isoformat_utc(now)),
+            (account_id, clinic_code, login_phone, login_email, isoformat_utc(now)),
         )
 
     return jsonify(
@@ -206,6 +292,7 @@ def send_otp():
             "ok": True,
             "message": "OTP sent successfully.",
             "demoOtp": otp,
+            "identifierType": identifier_type,
             "cooldownSeconds": 20,
             "expiresInSeconds": OTP_TTL_SECONDS,
         }
@@ -215,11 +302,13 @@ def send_otp():
 @app.route("/api/verify-otp", methods=["POST"])
 def verify_otp():
     data = request.get_json(silent=True) or {}
-    phone = str(data.get("phone", "")).strip()
+    account_id, identifier_type, login_phone, login_email_or_error = parse_login_identifier(data)
+    if not account_id or not identifier_type:
+        return json_error(login_email_or_error, 400)
+
+    login_email = login_email_or_error
     otp = str(data.get("otp", "")).strip()
 
-    if not PHONE_RE.match(phone):
-        return json_error("Enter a valid 10-digit phone number.", 400)
     if not re.match(r"^\d{4}$", otp):
         return json_error("OTP must be a 4-digit number.", 400)
 
@@ -233,7 +322,7 @@ def verify_otp():
             ORDER BY id DESC
             LIMIT 1
             """,
-            (phone, otp),
+            (account_id, otp),
         ).fetchone()
 
         if not otp_row:
@@ -252,13 +341,28 @@ def verify_otp():
             INSERT INTO sessions (token, phone, created_at, expires_at)
             VALUES (?, ?, ?, ?)
             """,
-            (token, phone, isoformat_utc(now), isoformat_utc(session_expires)),
+            (token, account_id, isoformat_utc(now), isoformat_utc(session_expires)),
         )
+
+        user_row = db.execute(
+            """
+            SELECT contact_phone, email
+            FROM users
+            WHERE phone = ?
+            """,
+            (account_id,),
+        ).fetchone()
+
+    if user_row:
+        login_phone = str(user_row["contact_phone"] or "").strip() or login_phone
+        login_email = normalize_email(user_row["email"] or "") or login_email
 
     return jsonify(
         {
             "ok": True,
-            "phone": phone,
+            "phone": login_phone,
+            "email": login_email,
+            "identifierType": identifier_type,
             "sessionToken": token,
             "expiresAt": isoformat_utc(session_expires),
         }
@@ -276,19 +380,21 @@ def logout():
 
 @app.route("/api/profile", methods=["GET"])
 def get_profile():
-    phone, _, auth_error = require_auth()
+    account_id, _, auth_error = require_auth()
     if auth_error:
         return auth_error
+
+    login_phone, login_email = split_account_identifier(account_id or "")
 
     with get_db() as db:
         row = db.execute(
             """
-            SELECT phone, clinic_code, name, dob, gender, blood_group,
-                   state, city, pincode, address, emergency_contact
+            SELECT clinic_code, name, dob, gender, blood_group, state, city,
+                   pincode, address, contact_phone, email, insurance_id, emergency_contact
             FROM users
             WHERE phone = ?
             """,
-            (phone,),
+            (account_id,),
         ).fetchone()
 
     if not row:
@@ -296,7 +402,7 @@ def get_profile():
             {
                 "ok": True,
                 "profile": {
-                    "phone": phone,
+                    "phone": login_phone,
                     "clinicCode": "",
                     "name": "",
                     "dob": "",
@@ -306,6 +412,9 @@ def get_profile():
                     "city": "",
                     "pincode": "",
                     "address": "",
+                    "email": login_email,
+                    "loginEmail": login_email,
+                    "insuranceId": "",
                     "emergencyContact": "",
                 },
             }
@@ -315,7 +424,7 @@ def get_profile():
         {
             "ok": True,
             "profile": {
-                "phone": row["phone"],
+                "phone": (row["contact_phone"] or "").strip() or login_phone,
                 "clinicCode": row["clinic_code"] or "",
                 "name": row["name"] or "",
                 "dob": row["dob"] or "",
@@ -325,6 +434,9 @@ def get_profile():
                 "city": row["city"] or "",
                 "pincode": row["pincode"] or "",
                 "address": row["address"] or "",
+                "email": (row["email"] or "").strip() or login_email,
+                "loginEmail": login_email,
+                "insuranceId": row["insurance_id"] or "",
                 "emergencyContact": row["emergency_contact"] or "",
             },
         }
@@ -333,17 +445,26 @@ def get_profile():
 
 @app.route("/api/profile", methods=["POST"])
 def save_profile():
-    phone, _, auth_error = require_auth()
+    account_id, _, auth_error = require_auth()
     if auth_error:
         return auth_error
 
+    login_phone, login_email = split_account_identifier(account_id or "")
     payload = normalize_profile_payload(request.get_json(silent=True) or {})
-    payload["phone"] = phone # type: ignore
+
+    if payload["phone"] and not PHONE_RE.match(payload["phone"]):
+        return json_error("Phone must be a valid 10-digit number.", 400)
+    if not payload["phone"] and login_phone:
+        payload["phone"] = login_phone
 
     if payload["name"] and len(payload["name"]) < 2:
         return json_error("Name is too short.", 400)
     if payload["pincode"] and not PINCODE_RE.match(payload["pincode"]):
         return json_error("Pincode must be a valid 6-digit number.", 400)
+    if payload["email"] and not EMAIL_RE.match(payload["email"]):
+        return json_error("Please enter a valid email address.", 400)
+    if not payload["email"] and login_email:
+        payload["email"] = login_email
     if payload["emergencyContact"] and not PHONE_RE.match(payload["emergencyContact"]):
         return json_error("Emergency contact must be a valid 10-digit number.", 400)
 
@@ -352,9 +473,9 @@ def save_profile():
             """
             INSERT INTO users (
                 phone, clinic_code, name, dob, gender, blood_group,
-                state, city, pincode, address, emergency_contact, updated_at
+                state, city, pincode, address, contact_phone, email, insurance_id, emergency_contact, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(phone) DO UPDATE SET
                 clinic_code = excluded.clinic_code,
                 name = excluded.name,
@@ -365,11 +486,14 @@ def save_profile():
                 city = excluded.city,
                 pincode = excluded.pincode,
                 address = excluded.address,
+                contact_phone = excluded.contact_phone,
+                email = excluded.email,
+                insurance_id = excluded.insurance_id,
                 emergency_contact = excluded.emergency_contact,
                 updated_at = excluded.updated_at
             """,
             (
-                payload["phone"],
+                account_id,
                 payload["clinicCode"],
                 payload["name"],
                 payload["dob"],
@@ -379,6 +503,9 @@ def save_profile():
                 payload["city"],
                 payload["pincode"],
                 payload["address"],
+                payload["phone"],
+                payload["email"],
+                payload["insuranceId"],
                 payload["emergencyContact"],
                 isoformat_utc(utc_now()),
             ),
@@ -412,6 +539,79 @@ def list_reports():
             continue
 
     return jsonify({"ok": True, "reports": reports})
+
+
+@app.route("/api/stats", methods=["GET"])
+def report_stats():
+    phone, _, auth_error = require_auth()
+    if auth_error:
+        return auth_error
+
+    with get_db() as db:
+        rows = db.execute(
+            """
+            SELECT payload
+            FROM reports
+            WHERE phone = ?
+            """,
+            (phone,),
+        ).fetchall()
+
+    reports = []
+    for row in rows:
+        try:
+            reports.append(json.loads(row["payload"]))
+        except Exception:
+            continue
+
+    today = utc_now().date().isoformat()
+
+    def risk_value(report: Dict[str, Any]) -> float:
+        try:
+            return float(report.get("risk", 0) or 0)
+        except Exception:
+            return 0.0
+
+    total = len(reports)
+    high_risk = sum(1 for report in reports if risk_value(report) >= 70)
+    critical = sum(1 for report in reports if risk_value(report) >= 80)
+    routine = sum(1 for report in reports if str(report.get("priority", "Routine")) == "Routine")
+    urgent = sum(1 for report in reports if str(report.get("priority", "Routine")) == "Urgent")
+    emergency = sum(1 for report in reports if str(report.get("priority", "Routine")) == "Emergency")
+    triage_emergency = sum(
+        1
+        for report in reports
+        if str(report.get("triageRecommendation") or report.get("priority", "Routine")) == "Emergency"
+    )
+    triage_needs_attention = sum(
+        1
+        for report in reports
+        if str(report.get("triageRecommendation") or report.get("priority", "Routine")) in {"Urgent", "Emergency"}
+    )
+    follow_up_due = sum(
+        1 for report in reports if str(report.get("followUpDate", "")).strip() and str(report.get("followUpDate")) <= today
+    )
+    follow_up_today = sum(1 for report in reports if str(report.get("followUpDate", "")).strip() == today)
+    average_risk = round(sum(risk_value(report) for report in reports) / total) if total > 0 else 0
+
+    return jsonify(
+        {
+            "ok": True,
+            "stats": {
+                "total": total,
+                "highRisk": high_risk,
+                "critical": critical,
+                "routine": routine,
+                "urgent": urgent,
+                "emergency": emergency,
+                "triageEmergency": triage_emergency,
+                "triageNeedsAttention": triage_needs_attention,
+                "followUpDue": follow_up_due,
+                "followUpToday": follow_up_today,
+                "averageRisk": average_risk,
+            },
+        }
+    )
 
 
 @app.route("/api/reports", methods=["POST"])

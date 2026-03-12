@@ -125,6 +125,32 @@
 
       <div class="split-grid">
         <div>
+          <label for="occupation">Occupation</label>
+          <input
+            type="text"
+            id="occupation"
+            placeholder="Occupation"
+            aria-label="Occupation"
+            maxlength="60"
+            autocomplete="organization-title"
+          >
+        </div>
+        <div>
+          <label for="emergencyRelation">Emergency Contact Relation</label>
+          <select id="emergencyRelation" aria-label="Emergency Contact Relation">
+            <option value="">Select Relation</option>
+            <option value="Parent">Parent</option>
+            <option value="Spouse">Spouse</option>
+            <option value="Sibling">Sibling</option>
+            <option value="Child">Child</option>
+            <option value="Friend">Friend</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="split-grid">
+        <div>
           <label for="bloodGroup">Blood Group</label>
           <select id="bloodGroup" aria-label="Blood Group">
             <option value="">Select Blood Group</option>
@@ -163,7 +189,7 @@
         aria-label="Phone Number"
         readonly
       >
-      <p class="helper-text">Phone number is auto-filled from login.</p>
+      <p class="helper-text">Phone is auto-filled for phone login and optional for email login.</p>
 
       <button type="submit" class="btn-primary">Save & Continue</button>
       <a href="login.html" class="text-link">Back to Login</a>
