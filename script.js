@@ -67,12 +67,19 @@ document.addEventListener("DOMContentLoaded", initPage);
 function sendOTP() {
   const phoneInput = byId("phone");
   if (!phoneInput) {
+    console.error("Phone input element not found");
     return;
   }
 
   const phone = phoneInput.value.trim();
+  if (!phone) {
+    alert("Phone number is required");
+    phoneInput.focus();
+    return;
+  }
   if (phone.length !== 10 || /\D/.test(phone)) {
-    alert("Enter valid number");
+    alert("Please enter a valid 10-digit phone number");
+    phoneInput.select();
     return;
   }
 
@@ -80,11 +87,12 @@ function sendOTP() {
   localStorage.setItem("generatedOtp", generatedOtp);
   localStorage.setItem("phone", phone);
 
-  alert(`OTP: ${generatedOtp}`);
+  alert(`OTP sent! Your OTP: ${generatedOtp}`);
 
   const otpBox = byId("otpBox");
   if (otpBox) {
     otpBox.style.display = "block";
+    byId("otp").focus();
   }
 }
 
@@ -111,12 +119,38 @@ function submitData() {
   const state = byId("state");
 
   if (!name || !dob || !state) {
+    console.error("Required form fields not found");
     return;
   }
 
-  localStorage.setItem("name", name.value.trim());
-  localStorage.setItem("dob", dob.value);
-  localStorage.setItem("state", state.value);
+  const fullName = name.value.trim();
+  const dobValue = dob.value;
+  const stateValue = state.value;
+
+  if (!fullName) {
+    alert("Full name is required");
+    name.focus();
+    return;
+  }
+  if (!/^[a-zA-Z\s]+$/.test(fullName)) {
+    alert("Name should contain only letters and spaces");
+    name.focus();
+    return;
+  }
+  if (!dobValue) {
+    alert("Date of birth is required");
+    dob.focus();
+    return;
+  }
+  if (stateValue === "Select State") {
+    alert("Please select a valid state");
+    state.focus();
+    return;
+  }
+
+  localStorage.setItem("name", fullName);
+  localStorage.setItem("dob", dobValue);
+  localStorage.setItem("state", stateValue);
 
   window.location.href = "dashboard.html";
 }
@@ -334,6 +368,26 @@ function generateReport() {
   const after = byId("after");
 
   if (!patientName || !visitDate || !symptoms || !medicines || !tests || !risk || !doctor || !preview || !after) {
+    console.error("Required form elements not found");
+    alert("Error: Form elements missing. Please refresh the page.");
+    return;
+  }
+  
+  if (!patientName.value.trim()) {
+    alert("Please enter patient name");
+    patientName.focus();
+    return;
+  }
+  
+  if (!visitDate.value) {
+    alert("Please select visit date");
+    visitDate.focus();
+    return;
+  }
+  
+  if (!doctor.value.trim()) {
+    alert("Please enter doctor signature");
+    doctor.focus();
     return;
   }
 
@@ -373,18 +427,29 @@ function sendLab() {
 }
 
 function storeReport() {
-  const reports = JSON.parse(localStorage.getItem("reports")) || [];
-  const current = JSON.parse(localStorage.getItem("currentReport"));
-
-  if (!current) {
-    alert("Generate report first");
-    return;
+  try {
+    const reports = JSON.parse(localStorage.getItem("reports")) || [];
+    const currentReport = localStorage.getItem("currentReport");
+    
+    if (!currentReport) {
+      alert("Please generate a report first");
+      return;
+    }
+    
+    const current = JSON.parse(currentReport);
+    if (!current.patientName || !current.visitDate) {
+      alert("Report is incomplete. Please fill all required fields.");
+      return;
+    }
+    
+    reports.push(current);
+    localStorage.setItem("reports", JSON.stringify(reports));
+    alert("Report stored successfully!");
+    localStorage.removeItem("currentReport");
+  } catch (error) {
+    console.error("Error storing report:", error);
+    alert("Failed to store report. Please try again.");
   }
-
-  reports.push(current);
-  localStorage.setItem("reports", JSON.stringify(reports));
-
-  alert("Report Stored Successfully");
 }
 
 function downloadPDF(index) {
@@ -435,47 +500,53 @@ function downloadPDF(index) {
 function loadReports() {
   const container = byId("reportContainer");
   if (!container) {
+    console.error("Report container element not found");
     return;
   }
 
-  const reports = JSON.parse(localStorage.getItem("reports")) || [];
-  container.innerHTML = "";
+  try {
+    const reports = JSON.parse(localStorage.getItem("reports")) || [];
+    container.innerHTML = "";
 
   if (reports.length === 0) {
     container.innerHTML = '<div class="no-report">No Reports Available</div>';
     return;
   }
 
-  reports.forEach((report, index) => {
-    const patient = getReportField(report, ["patientName", "name"]);
-    const date = getReportField(report, ["visitDate", "date"]);
-    const status = getReportField(report, ["status"]);
-    const symptoms = getReportField(report, ["symptoms"]);
-    const medicines = getReportField(report, ["medicines"]);
-    const tests = getReportField(report, ["tests", "exercise"]);
-    const risk = getReportField(report, ["risk"], "0");
-    const doctor = getReportField(report, ["doctor"]);
+    reports.forEach((report, index) => {
+      const patient = getReportField(report, ["patientName", "name"]);
+      const date = getReportField(report, ["visitDate", "date"]);
+      const status = getReportField(report, ["status"]);
+      const symptoms = getReportField(report, ["symptoms"]);
+      const medicines = getReportField(report, ["medicines"]);
+      const tests = getReportField(report, ["tests", "exercise"]);
+      const risk = getReportField(report, ["risk"], "0");
+      const doctor = getReportField(report, ["doctor"]);
 
-    const div = document.createElement("div");
-    div.className = "report";
+      const div = document.createElement("div");
+      div.className = "report";
 
-    div.innerHTML = `
-      <h3>Report ${index + 1}</h3>
-      <p><strong>Patient:</strong> ${safeText(patient)}</p>
-      <p><strong>Date:</strong> ${safeText(date)}</p>
-      <p><strong>Status:</strong> ${safeText(status)}</p>
-      <p><strong>Symptoms:</strong> ${safeText(symptoms)}</p>
-      <p><strong>Medicines:</strong> ${safeText(medicines)}</p>
-      <p><strong>Tests:</strong> ${safeText(tests)}</p>
-      <p><strong>Risk:</strong> ${safeText(risk)}%</p>
-      <p><strong>Doctor:</strong> ${safeText(doctor)}</p>
-      <br>
-      <button class="pdf-btn" onclick="downloadPDF(${index})">Download PDF</button>
-      <button class="delete-btn" onclick="deleteReport(${index})">Delete</button>
-    `;
+      div.innerHTML = `
+        <h3>Report ${index + 1}</h3>
+        <p><strong>Patient:</strong> ${safeText(patient)}</p>
+        <p><strong>Date:</strong> ${safeText(date)}</p>
+        <p><strong>Status:</strong> ${safeText(status)}</p>
+        <p><strong>Symptoms:</strong> ${safeText(symptoms)}</p>
+        <p><strong>Medicines:</strong> ${safeText(medicines)}</p>
+        <p><strong>Tests:</strong> ${safeText(tests)}</p>
+        <p><strong>Risk:</strong> ${safeText(risk)}%</p>
+        <p><strong>Doctor:</strong> ${safeText(doctor)}</p>
+        <br>
+        <button class="pdf-btn" onclick="downloadPDF(${index})">Download PDF</button>
+        <button class="delete-btn" onclick="deleteReport(${index})">Delete</button>
+      `;
 
-    container.appendChild(div);
-  });
+      container.appendChild(div);
+    });
+  } catch (error) {
+    console.error("Error loading reports:", error);
+    container.innerHTML = '<div class="no-report">Error loading reports. Please refresh the page.</div>';
+  }
 }
 
 function deleteReport(index) {
