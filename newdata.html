@@ -115,6 +115,27 @@
         aria-label="Chief Complaint"
       >
 
+      <div class="split-grid">
+        <div>
+          <label for="chiefComplaintDuration">Complaint Duration</label>
+          <input
+            id="chiefComplaintDuration"
+            type="text"
+            placeholder="e.g. 3 days, 2 weeks"
+            aria-label="Complaint Duration"
+          >
+        </div>
+        <div>
+          <label for="painLocation">Pain Location</label>
+          <input
+            id="painLocation"
+            type="text"
+            placeholder="e.g. Lower back, chest"
+            aria-label="Pain Location"
+          >
+        </div>
+      </div>
+
       <label for="conversation">Doctor-Patient Conversation</label>
       <textarea
         id="conversation"
@@ -134,6 +155,13 @@
         placeholder="Known allergies (if any)"
         aria-label="Known Allergies"
       >
+
+      <label for="medicationAdherence">Medication Adherence</label>
+      <select id="medicationAdherence" aria-label="Medication Adherence">
+        <option value="Good">Good</option>
+        <option value="Partial">Partial</option>
+        <option value="Poor">Poor</option>
+      </select>
 
       <div class="split-grid">
         <div>
@@ -234,6 +262,15 @@
         aria-label="Care Plan"
       ></textarea>
 
+      <label for="disposition">Disposition</label>
+      <select id="disposition" aria-label="Disposition">
+        <option value="Home Care">Home Care</option>
+        <option value="Observation">Observation</option>
+        <option value="Ward Admission">Ward Admission</option>
+        <option value="ICU Transfer">ICU Transfer</option>
+        <option value="Referred">Referred</option>
+      </select>
+
       <label for="clinicalNotes">Additional Care Notes</label>
       <textarea
         id="clinicalNotes"
@@ -283,6 +320,6 @@
     </main>
   </div>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=20260313c"></script>
 </body>
 </html>

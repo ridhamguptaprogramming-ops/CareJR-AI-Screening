@@ -1,4 +1,4 @@
-# CareJR AI Screening - UI and Feature Improvements (v9)
+# CareJR AI Screening - UI and Feature Improvements (v12)
 
 ## Updated Files
 - `app.py`
@@ -30,7 +30,11 @@
 - **Pincode** (`pincode`)
 - **Address** (`address`)
 - **Email** (`email`)
+- **Occupation** (`occupation`)
+- **Emergency Relation** (`emergencyRelation`)
 - **Insurance ID** (`insuranceId`)
+- **Alternate Phone** (`alternatePhone`)
+- **Marital Status** (`maritalStatus`)
 - **Blood Group** (`bloodGroup`)
 - **Emergency Contact** (`emergencyContact`)
 
@@ -38,6 +42,7 @@
 - Added validation for all new required fields.
 - Emergency contact is validated as a 10-digit number.
 - Emergency contact cannot match login phone number.
+- Alternate phone (optional) is validated as a 10-digit number and cannot duplicate login/emergency contact.
 - All new profile fields are persisted and restored.
 
 ## 3. Dashboard UI Enhancements (`dashboard.html`)
@@ -56,8 +61,14 @@
 - Reports Today
 - Follow-up Due
 - Follow-up Today
+- Follow-up Overdue
 - AI Needs Attention
 - AI Emergency Flag
+- Admitted / Observed
+- High Pain Cases
+- Tele-consults
+- ICU Transfers
+- Average Pain
 - Existing risk counters retained and updated.
 
 ### Metric logic
@@ -68,9 +79,15 @@
 - Patient Age (auto-filled from DOB)
 - Consultation Type
 - Chief Complaint
+- Complaint Duration
+- Pain Location
 - Known Allergies
+- Medication Adherence
+- Comorbidities
 - Pain Score
 - Oxygen Support
+- Admission Status
+- Disposition
 - Vitals:
   - Temperature
   - SpO2
@@ -105,12 +122,20 @@
 - **Priority filter** (`priorityFilter`): All / Routine / Urgent / Emergency
 - Additional sort option: **Sort by Priority**
 - Added triage filter with routine/urgent/emergency options.
+- Added admission filter with not-admitted/observation/admitted/ICU options.
+- Added consultation filter (all / in-person / tele-consult / home visit).
 
 ### Added new summary counters
 - Emergency priority count (`summaryEmergency`)
 - Urgent priority count (`summaryUrgent`)
 - Follow-up due count (`summaryFollowUpDue`)
+- Follow-up overdue count (`summaryFollowUpOverdue`)
 - AI needs-attention count (`summaryNeedsAttention`)
+- ICU cases (`summaryICU`)
+- High pain count (`summaryHighPain`)
+- ICU transfer count (`summaryIcuTransfer`)
+- Comorbidity cases (`summaryComorbidity`)
+- Average pain (`summaryAveragePain`)
 - Existing visible/stored/critical/average counters retained.
 
 ### Listing improvements
@@ -123,6 +148,8 @@
 - `BLOOD_GROUP`
 - `CITY`
 - `EMERGENCY_CONTACT`
+- `ALTERNATE_PHONE`
+- `MARITAL_STATUS`
 
 ### Added/updated logic areas
 - Input normalization for clinic code and emergency contact.
@@ -132,6 +159,7 @@
 - AI triage engine added using risk + vitals.
 - Filter/search/sort logic expanded for new fields and priority mode.
 - Dashboard stats expanded with priority + triage counts.
+- Draft/preview/download/report cards now include complaint duration, pain location, and medication adherence.
 - Local data now syncs with Python backend APIs.
 
 ## 7. Python Backend (`app.py`)
@@ -149,9 +177,13 @@
 
 ### Storage
 - SQLite database (`carejr.db`) with tables for users, OTP, sessions, and reports.
-- Users table now stores email, insurance id, and separate contact phone.
+- Users table now stores email, insurance id, occupation, emergency relation, and separate contact phone.
+- Users table now also stores alternate phone and marital status.
 - OTP/session identity now supports either a phone account or an email account.
 - Session-based authentication with bearer token.
+- `/api/stats` now also returns follow-up overdue, admitted cases, and average pain.
+- `/api/stats` now also returns ICU cases and comorbidity cases.
+- `/api/stats` now also returns high pain cases, tele-consult cases, and ICU transfer cases.
 
 ### Run
 1. `python3 -m pip install -r requirements.txt`

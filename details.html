@@ -125,6 +125,31 @@
 
       <div class="split-grid">
         <div>
+          <label for="alternatePhone">Alternate Phone</label>
+          <input
+            type="tel"
+            id="alternatePhone"
+            placeholder="Optional 10-digit alternate phone"
+            maxlength="10"
+            pattern="[0-9]{10}"
+            inputmode="numeric"
+            aria-label="Alternate Phone"
+          >
+        </div>
+        <div>
+          <label for="maritalStatus">Marital Status</label>
+          <select id="maritalStatus" aria-label="Marital Status">
+            <option value="">Select Status</option>
+            <option value="Single">Single</option>
+            <option value="Married">Married</option>
+            <option value="Divorced">Divorced</option>
+            <option value="Widowed">Widowed</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="split-grid">
+        <div>
           <label for="occupation">Occupation</label>
           <input
             type="text"
@@ -198,6 +223,6 @@
     </form>
   </main>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=20260313c"></script>
 </body>
 </html>

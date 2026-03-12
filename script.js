@@ -16,7 +16,11 @@ const STORAGE_KEYS = {
   PINCODE: "pincode",
   ADDRESS: "address",
   EMAIL: "email",
+  OCCUPATION: "occupation",
+  EMERGENCY_RELATION: "emergencyRelation",
   INSURANCE_ID: "insuranceId",
+  ALTERNATE_PHONE: "alternatePhone",
+  MARITAL_STATUS: "maritalStatus",
   EMERGENCY_CONTACT: "emergencyContact",
   CURRENT_REPORT: "currentReport",
   REPORTS: "reports",
@@ -410,6 +414,11 @@ function setupFormHandlers() {
     emergencyContact.addEventListener("input", normalizePhoneInput);
   }
 
+  const alternatePhone = byId("alternatePhone");
+  if (alternatePhone && alternatePhone.tagName === "INPUT") {
+    alternatePhone.addEventListener("input", normalizePhoneInput);
+  }
+
   const pincodeInput = byId("pincode");
   if (pincodeInput && pincodeInput.tagName === "INPUT") {
     pincodeInput.addEventListener("input", (event) => {
@@ -421,6 +430,13 @@ function setupFormHandlers() {
   if (insuranceInput && insuranceInput.tagName === "INPUT") {
     insuranceInput.addEventListener("input", (event) => {
       event.target.value = event.target.value.replace(/[^\w-]/g, "").toUpperCase();
+    });
+  }
+
+  const occupationInput = byId("occupation");
+  if (occupationInput && occupationInput.tagName === "INPUT") {
+    occupationInput.addEventListener("input", (event) => {
+      event.target.value = event.target.value.replace(/[^a-zA-Z\s.'-]/g, "").slice(0, 60);
     });
   }
 
@@ -535,6 +551,26 @@ function hydrateSharedData() {
     emailInput.value = localStorage.getItem(STORAGE_KEYS.EMAIL) || "";
   }
 
+  const occupationInput = byId("occupation");
+  if (occupationInput && occupationInput.tagName === "INPUT" && !occupationInput.value) {
+    occupationInput.value = localStorage.getItem(STORAGE_KEYS.OCCUPATION) || "";
+  }
+
+  const emergencyRelationInput = byId("emergencyRelation");
+  if (emergencyRelationInput && emergencyRelationInput.tagName === "SELECT" && !emergencyRelationInput.value) {
+    emergencyRelationInput.value = localStorage.getItem(STORAGE_KEYS.EMERGENCY_RELATION) || "";
+  }
+
+  const alternatePhoneInput = byId("alternatePhone");
+  if (alternatePhoneInput && alternatePhoneInput.tagName === "INPUT" && !alternatePhoneInput.value) {
+    alternatePhoneInput.value = localStorage.getItem(STORAGE_KEYS.ALTERNATE_PHONE) || "";
+  }
+
+  const maritalStatusInput = byId("maritalStatus");
+  if (maritalStatusInput && maritalStatusInput.tagName === "SELECT" && !maritalStatusInput.value) {
+    maritalStatusInput.value = localStorage.getItem(STORAGE_KEYS.MARITAL_STATUS) || "";
+  }
+
   const emailLoginInput = byId("emailLogin");
   if (emailLoginInput && emailLoginInput.tagName === "INPUT" && !emailLoginInput.value) {
     emailLoginInput.value =
@@ -603,6 +639,26 @@ function hydrateSharedData() {
     email.innerText = localStorage.getItem(STORAGE_KEYS.EMAIL) || "-";
   }
 
+  const occupation = byId("occupation");
+  if (occupation && occupation.tagName !== "INPUT") {
+    occupation.innerText = localStorage.getItem(STORAGE_KEYS.OCCUPATION) || "-";
+  }
+
+  const emergencyRelation = byId("emergencyRelation");
+  if (emergencyRelation && emergencyRelation.tagName !== "SELECT") {
+    emergencyRelation.innerText = localStorage.getItem(STORAGE_KEYS.EMERGENCY_RELATION) || "-";
+  }
+
+  const alternatePhone = byId("alternatePhone");
+  if (alternatePhone && alternatePhone.tagName !== "INPUT") {
+    alternatePhone.innerText = localStorage.getItem(STORAGE_KEYS.ALTERNATE_PHONE) || "-";
+  }
+
+  const maritalStatus = byId("maritalStatus");
+  if (maritalStatus && maritalStatus.tagName !== "SELECT") {
+    maritalStatus.innerText = localStorage.getItem(STORAGE_KEYS.MARITAL_STATUS) || "-";
+  }
+
   const insurance = byId("insuranceId");
   if (insurance && insurance.tagName !== "INPUT") {
     insurance.innerText = localStorage.getItem(STORAGE_KEYS.INSURANCE_ID) || "-";
@@ -653,10 +709,16 @@ function restoreDraftIfAvailable() {
     ["visitDate", "visitDate"],
     ["followUpDate", "followUpDate"],
     ["priority", "priority"],
+    ["admissionStatus", "admissionStatus"],
+    ["disposition", "disposition"],
     ["consultationType", "consultationType"],
     ["chiefComplaint", "chiefComplaint"],
+    ["chiefComplaintDuration", "chiefComplaintDuration"],
+    ["painLocation", "painLocation"],
     ["conversation", "conversation"],
     ["knownAllergies", "knownAllergies"],
+    ["medicationAdherence", "medicationAdherence"],
+    ["comorbidities", "comorbidities"],
     ["painScore", "painScore"],
     ["oxygenSupport", "oxygenSupport"],
     ["temperature", "temperature"],
@@ -744,7 +806,11 @@ async function syncProfileFromServer() {
     [STORAGE_KEYS.PINCODE, "pincode"],
     [STORAGE_KEYS.ADDRESS, "address"],
     [STORAGE_KEYS.EMAIL, "email"],
+    [STORAGE_KEYS.OCCUPATION, "occupation"],
+    [STORAGE_KEYS.EMERGENCY_RELATION, "emergencyRelation"],
     [STORAGE_KEYS.INSURANCE_ID, "insuranceId"],
+    [STORAGE_KEYS.ALTERNATE_PHONE, "alternatePhone"],
+    [STORAGE_KEYS.MARITAL_STATUS, "maritalStatus"],
     [STORAGE_KEYS.EMERGENCY_CONTACT, "emergencyContact"]
   ];
 
@@ -1012,7 +1078,11 @@ async function submitData() {
   const pincode = byId("pincode");
   const address = byId("address");
   const email = byId("email");
+  const occupation = byId("occupation");
+  const emergencyRelation = byId("emergencyRelation");
   const insuranceId = byId("insuranceId");
+  const alternatePhone = byId("alternatePhone");
+  const maritalStatus = byId("maritalStatus");
   const bloodGroup = byId("bloodGroup");
   const emergencyContact = byId("emergencyContact");
   const phone = byId("phone");
@@ -1029,10 +1099,15 @@ async function submitData() {
   const pincodeValue = pincode.value.trim();
   const addressValue = address.value.trim();
   const emailValue = email.value.trim().toLowerCase();
+  const occupationValue = occupation ? occupation.value.trim() : "";
+  const emergencyRelationValue = emergencyRelation ? emergencyRelation.value : "";
   const insuranceValue = insuranceId ? insuranceId.value.trim().toUpperCase() : "";
+  const alternatePhoneValue = alternatePhone ? alternatePhone.value.trim() : "";
+  const maritalStatusValue = maritalStatus ? maritalStatus.value : "";
   const bloodGroupValue = bloodGroup.value;
   const emergencyValue = emergencyContact.value.trim();
   const phoneValue = phone ? phone.value.trim() : "";
+  const allowedMaritalStatuses = new Set(["", "Single", "Married", "Divorced", "Widowed"]);
 
   if (!/^[a-zA-Z\s.'-]{2,60}$/.test(fullName)) {
     showMessage("profileMessage", "Enter a valid full name.", "error");
@@ -1090,15 +1165,59 @@ async function submitData() {
     return;
   }
 
+  if (occupationValue && !/^[a-zA-Z\s.'-]{2,60}$/.test(occupationValue)) {
+    showMessage("profileMessage", "Occupation should contain letters only.", "error");
+    occupation.focus();
+    return;
+  }
+
+  if (emergencyRelationValue && !/^[a-zA-Z\s]{2,30}$/.test(emergencyRelationValue)) {
+    showMessage("profileMessage", "Please select a valid emergency relation.", "error");
+    emergencyRelation.focus();
+    return;
+  }
+
   if (!/^\d{10}$/.test(emergencyValue)) {
     showMessage("profileMessage", "Emergency contact must be a valid 10-digit number.", "error");
     emergencyContact.focus();
     return;
   }
 
+  if (alternatePhoneValue && !/^\d{10}$/.test(alternatePhoneValue)) {
+    showMessage("profileMessage", "Alternate phone must be a valid 10-digit number.", "error");
+    if (alternatePhone) {
+      alternatePhone.focus();
+    }
+    return;
+  }
+
   if (phoneValue && emergencyValue === phoneValue) {
     showMessage("profileMessage", "Emergency contact should be different from login phone.", "error");
     emergencyContact.focus();
+    return;
+  }
+
+  if (alternatePhoneValue && phoneValue && alternatePhoneValue === phoneValue) {
+    showMessage("profileMessage", "Alternate phone should be different from login phone.", "error");
+    if (alternatePhone) {
+      alternatePhone.focus();
+    }
+    return;
+  }
+
+  if (alternatePhoneValue && alternatePhoneValue === emergencyValue) {
+    showMessage("profileMessage", "Alternate phone should be different from emergency contact.", "error");
+    if (alternatePhone) {
+      alternatePhone.focus();
+    }
+    return;
+  }
+
+  if (!allowedMaritalStatuses.has(maritalStatusValue)) {
+    showMessage("profileMessage", "Please select a valid marital status.", "error");
+    if (maritalStatus) {
+      maritalStatus.focus();
+    }
     return;
   }
 
@@ -1111,7 +1230,11 @@ async function submitData() {
   localStorage.setItem(STORAGE_KEYS.PINCODE, pincodeValue);
   localStorage.setItem(STORAGE_KEYS.ADDRESS, addressValue);
   localStorage.setItem(STORAGE_KEYS.EMAIL, emailValue);
+  localStorage.setItem(STORAGE_KEYS.OCCUPATION, occupationValue);
+  localStorage.setItem(STORAGE_KEYS.EMERGENCY_RELATION, emergencyRelationValue);
   localStorage.setItem(STORAGE_KEYS.INSURANCE_ID, insuranceValue);
+  localStorage.setItem(STORAGE_KEYS.ALTERNATE_PHONE, alternatePhoneValue);
+  localStorage.setItem(STORAGE_KEYS.MARITAL_STATUS, maritalStatusValue);
   localStorage.setItem(STORAGE_KEYS.EMERGENCY_CONTACT, emergencyValue);
 
   const response = await apiRequest("/profile", {
@@ -1128,7 +1251,11 @@ async function submitData() {
       pincode: pincodeValue,
       address: addressValue,
       email: emailValue,
+      occupation: occupationValue,
+      emergencyRelation: emergencyRelationValue,
       insuranceId: insuranceValue,
+      alternatePhone: alternatePhoneValue,
+      maritalStatus: maritalStatusValue,
       emergencyContact: emergencyValue
     })
   });
@@ -1169,7 +1296,11 @@ async function logout() {
   localStorage.removeItem(STORAGE_KEYS.PINCODE);
   localStorage.removeItem(STORAGE_KEYS.ADDRESS);
   localStorage.removeItem(STORAGE_KEYS.EMAIL);
+  localStorage.removeItem(STORAGE_KEYS.OCCUPATION);
+  localStorage.removeItem(STORAGE_KEYS.EMERGENCY_RELATION);
   localStorage.removeItem(STORAGE_KEYS.INSURANCE_ID);
+  localStorage.removeItem(STORAGE_KEYS.ALTERNATE_PHONE);
+  localStorage.removeItem(STORAGE_KEYS.MARITAL_STATUS);
   localStorage.removeItem(STORAGE_KEYS.EMERGENCY_CONTACT);
   localStorage.removeItem(STORAGE_KEYS.CURRENT_REPORT);
   localStorage.removeItem(STORAGE_KEYS.DRAFT_REPORT);
@@ -1395,6 +1526,7 @@ function runAI() {
   const chiefComplaint = byId("chiefComplaint");
   const conversation = byId("conversation");
   const knownAllergies = byId("knownAllergies");
+  const comorbidities = byId("comorbidities");
   const symptoms = byId("symptoms");
   const diagnosis = byId("diagnosis");
   const medicines = byId("medicines");
@@ -1409,7 +1541,8 @@ function runAI() {
   const sourceText = [
     chiefComplaint ? chiefComplaint.value : "",
     conversation.value,
-    knownAllergies ? knownAllergies.value : ""
+    knownAllergies ? knownAllergies.value : "",
+    comorbidities ? comorbidities.value : ""
   ].join(" ");
   const result = analyze(sourceText);
 
@@ -1436,10 +1569,16 @@ function buildCurrentReport() {
   const visitDate = byId("visitDate");
   const followUpDate = byId("followUpDate");
   const priority = byId("priority");
+  const admissionStatus = byId("admissionStatus");
+  const disposition = byId("disposition");
   const consultationType = byId("consultationType");
   const chiefComplaint = byId("chiefComplaint");
+  const chiefComplaintDuration = byId("chiefComplaintDuration");
+  const painLocation = byId("painLocation");
   const conversation = byId("conversation");
   const knownAllergies = byId("knownAllergies");
+  const medicationAdherence = byId("medicationAdherence");
+  const comorbidities = byId("comorbidities");
   const painScore = byId("painScore");
   const oxygenSupport = byId("oxygenSupport");
   const temperature = byId("temperature");
@@ -1476,10 +1615,16 @@ function buildCurrentReport() {
     visitDate: visitDate.value,
     followUpDate: followUpDate ? followUpDate.value : "",
     priority: priority ? priority.value : "Routine",
+    admissionStatus: admissionStatus ? admissionStatus.value : "Not Admitted",
+    disposition: disposition ? disposition.value : "Home Care",
     consultationType: consultationType ? consultationType.value : "In-person",
     chiefComplaint: chiefComplaint ? chiefComplaint.value.trim() : "",
+    chiefComplaintDuration: chiefComplaintDuration ? chiefComplaintDuration.value.trim() : "",
+    painLocation: painLocation ? painLocation.value.trim() : "",
     conversation: (conversation && conversation.value.trim()) || "",
     knownAllergies: knownAllergies ? knownAllergies.value.trim() : "",
+    medicationAdherence: medicationAdherence ? medicationAdherence.value : "Good",
+    comorbidities: comorbidities ? comorbidities.value.trim() : "",
     painScore: painScore ? painScore.value : "",
     oxygenSupport: oxygenSupport ? oxygenSupport.value : "Room Air",
     temperature: temperature ? temperature.value : "",
@@ -1625,9 +1770,15 @@ function generateReport() {
     <p><strong>Date:</strong> ${safeText(report.visitDate)}</p>
     <p><strong>Follow-up:</strong> ${safeText(report.followUpDate || "-")}</p>
     <p><strong>Priority:</strong> ${safeText(report.priority)}</p>
+    <p><strong>Admission:</strong> ${safeText(report.admissionStatus || "Not Admitted")}</p>
+    <p><strong>Disposition:</strong> ${safeText(report.disposition || "Home Care")}</p>
     <p><strong>Consultation:</strong> ${safeText(report.consultationType || "-")}</p>
     <p><strong>Complaint:</strong> ${safeText(report.chiefComplaint || "-")}</p>
+    <p><strong>Complaint Duration:</strong> ${safeText(report.chiefComplaintDuration || "-")}</p>
+    <p><strong>Pain Location:</strong> ${safeText(report.painLocation || "-")}</p>
     <p><strong>Allergies:</strong> ${safeText(report.knownAllergies || "-")}</p>
+    <p><strong>Medication Adherence:</strong> ${safeText(report.medicationAdherence || "-")}</p>
+    <p><strong>Comorbidities:</strong> ${safeText(report.comorbidities || "-")}</p>
     <p><strong>Pain/Oxygen:</strong> Pain ${safeText(report.painScore || "-")}/10, ${safeText(report.oxygenSupport || "Room Air")}</p>
     <p><strong>Vitals:</strong> Temp ${safeText(report.temperature || "-")}F, SpO2 ${safeText(report.spo2 || "-")}%, Weight ${safeText(report.weight || "-")}kg, Height ${safeText(report.height || "-")}cm, BMI ${safeText(report.bmi || "-")}, Pulse ${safeText(report.pulseRate || "-")} BPM, Resp ${safeText(report.respRate || "-")}/min, Sugar ${safeText(report.bloodSugar || "-")} mg/dL, BP ${safeText(report.bpSystolic || "-")}/${safeText(report.bpDiastolic || "-")}</p>
     <p><strong>Symptoms:</strong> ${safeText(report.symptoms)}</p>
@@ -1656,10 +1807,16 @@ function saveDraft() {
     visitDate: (byId("visitDate") && byId("visitDate").value) || "",
     followUpDate: (byId("followUpDate") && byId("followUpDate").value) || "",
     priority: (byId("priority") && byId("priority").value) || "Routine",
+    admissionStatus: (byId("admissionStatus") && byId("admissionStatus").value) || "Not Admitted",
+    disposition: (byId("disposition") && byId("disposition").value) || "Home Care",
     consultationType: (byId("consultationType") && byId("consultationType").value) || "In-person",
     chiefComplaint: (byId("chiefComplaint") && byId("chiefComplaint").value.trim()) || "",
+    chiefComplaintDuration: (byId("chiefComplaintDuration") && byId("chiefComplaintDuration").value.trim()) || "",
+    painLocation: (byId("painLocation") && byId("painLocation").value.trim()) || "",
     conversation: (byId("conversation") && byId("conversation").value.trim()) || "",
     knownAllergies: (byId("knownAllergies") && byId("knownAllergies").value.trim()) || "",
+    medicationAdherence: (byId("medicationAdherence") && byId("medicationAdherence").value) || "Good",
+    comorbidities: (byId("comorbidities") && byId("comorbidities").value.trim()) || "",
     painScore: (byId("painScore") && byId("painScore").value) || "",
     oxygenSupport: (byId("oxygenSupport") && byId("oxygenSupport").value) || "Room Air",
     temperature: (byId("temperature") && byId("temperature").value) || "",
@@ -1691,9 +1848,13 @@ function resetNewDataForm() {
   [
     "patientName",
     "chiefComplaint",
+    "chiefComplaintDuration",
+    "painLocation",
     "followUpDate",
     "conversation",
     "knownAllergies",
+    "comorbidities",
+    "disposition",
     "painScore",
     "oxygenSupport",
     "temperature",
@@ -1726,8 +1887,11 @@ function resetNewDataForm() {
   const preview = byId("preview");
   const after = byId("after");
   const priority = byId("priority");
+  const admissionStatus = byId("admissionStatus");
+  const disposition = byId("disposition");
   const consultationType = byId("consultationType");
   const oxygenSupport = byId("oxygenSupport");
+  const medicationAdherence = byId("medicationAdherence");
   const patientAge = byId("patientAge");
 
   if (risk) {
@@ -1750,12 +1914,24 @@ function resetNewDataForm() {
     priority.value = "Routine";
   }
 
+  if (admissionStatus) {
+    admissionStatus.value = "Not Admitted";
+  }
+
+  if (disposition) {
+    disposition.value = "Home Care";
+  }
+
   if (consultationType) {
     consultationType.value = "In-person";
   }
 
   if (oxygenSupport) {
     oxygenSupport.value = "Room Air";
+  }
+
+  if (medicationAdherence) {
+    medicationAdherence.value = "Good";
   }
 
   if (patientAge) {
@@ -1841,9 +2017,15 @@ function downloadPDF(index) {
   const visitDate = getReportField(data, ["visitDate", "date"]);
   const followUpDate = getReportField(data, ["followUpDate"], "-");
   const priority = getReportField(data, ["priority"], "Routine");
+  const admissionStatus = getReportField(data, ["admissionStatus"], "Not Admitted");
+  const disposition = getReportField(data, ["disposition"], "Home Care");
   const consultationType = getReportField(data, ["consultationType"], "In-person");
   const chiefComplaint = getReportField(data, ["chiefComplaint"], "-");
+  const chiefComplaintDuration = getReportField(data, ["chiefComplaintDuration"], "-");
+  const painLocation = getReportField(data, ["painLocation"], "-");
   const knownAllergies = getReportField(data, ["knownAllergies"], "-");
+  const medicationAdherence = getReportField(data, ["medicationAdherence"], "-");
+  const comorbidities = getReportField(data, ["comorbidities"], "-");
   const painScore = getReportField(data, ["painScore"], "-");
   const oxygenSupport = getReportField(data, ["oxygenSupport"], "Room Air");
   const temperature = getReportField(data, ["temperature"], "-");
@@ -1874,9 +2056,15 @@ function downloadPDF(index) {
   text += `Date: ${visitDate}\n`;
   text += `Follow-up Date: ${followUpDate}\n`;
   text += `Priority: ${priority}\n`;
+  text += `Admission Status: ${admissionStatus}\n`;
+  text += `Disposition: ${disposition}\n`;
   text += `Consultation Type: ${consultationType}\n`;
   text += `Chief Complaint: ${chiefComplaint}\n`;
+  text += `Complaint Duration: ${chiefComplaintDuration}\n`;
+  text += `Pain Location: ${painLocation}\n`;
   text += `Known Allergies: ${knownAllergies}\n`;
+  text += `Medication Adherence: ${medicationAdherence}\n`;
+  text += `Comorbidities: ${comorbidities}\n`;
   text += `Pain/Oxygen: Pain ${painScore}/10, ${oxygenSupport}\n`;
   text += `Vitals: Temp ${temperature}F, SpO2 ${spo2}%, Weight ${weight}kg, Height ${height}cm, BMI ${bmi}, Pulse ${pulseRate} BPM, Resp ${respRate}/min, Sugar ${bloodSugar} mg/dL, BP ${bpSystolic}/${bpDiastolic}\n`;
   text += `Status: ${status}\n`;
@@ -1904,28 +2092,45 @@ function downloadPDF(index) {
 function matchesFilters(report) {
   const searchInput = byId("searchReport");
   const highRiskOnly = byId("highRiskOnly");
+  const comorbidityOnly = byId("comorbidityOnly");
   const priorityFilter = byId("priorityFilter");
   const triageFilter = byId("triageFilter");
+  const admissionFilter = byId("admissionFilter");
+  const consultationFilter = byId("consultationFilter");
 
   const search = searchInput ? searchInput.value.trim().toLowerCase() : "";
   const highRisk = highRiskOnly ? highRiskOnly.checked : false;
+  const onlyComorbidity = comorbidityOnly ? comorbidityOnly.checked : false;
   const prioritySelected = priorityFilter ? priorityFilter.value : "all";
   const triageSelected = triageFilter ? triageFilter.value : "all";
+  const admissionSelected = admissionFilter ? admissionFilter.value : "all";
+  const consultationSelected = consultationFilter ? consultationFilter.value : "all";
 
   const patient = String(getReportField(report, ["patientName", "name"], "")).toLowerCase();
   const complaint = String(getReportField(report, ["chiefComplaint"], "")).toLowerCase();
+  const complaintDuration = String(getReportField(report, ["chiefComplaintDuration"], "")).toLowerCase();
+  const painLocation = String(getReportField(report, ["painLocation"], "")).toLowerCase();
   const symptoms = String(getReportField(report, ["symptoms"], "")).toLowerCase();
   const diagnosis = String(getReportField(report, ["diagnosis"], "")).toLowerCase();
   const doctor = String(getReportField(report, ["doctor"], "")).toLowerCase();
   const tests = String(getReportField(report, ["tests"], "")).toLowerCase();
   const pain = String(getReportField(report, ["painScore"], "")).toLowerCase();
+  const adherence = String(getReportField(report, ["medicationAdherence"], "")).toLowerCase();
   const oxygen = String(getReportField(report, ["oxygenSupport"], "")).toLowerCase();
+  const comorbidities = String(getReportField(report, ["comorbidities"], "")).toLowerCase();
+  const admission = String(getReportField(report, ["admissionStatus"], "Not Admitted")).toLowerCase();
+  const disposition = String(getReportField(report, ["disposition"], "Home Care")).toLowerCase();
+  const consultationType = String(getReportField(report, ["consultationType"], "In-person")).toLowerCase();
   const priority = String(getReportField(report, ["priority"], "")).toLowerCase();
   const triage = String(getReportField(report, ["triageRecommendation", "priority"], "")).toLowerCase();
   const notes = String(getReportField(report, ["clinicalNotes"], "")).toLowerCase();
   const risk = Number(getReportField(report, ["risk"], 0)) || 0;
 
   if (highRisk && risk < 70) {
+    return false;
+  }
+
+  if (onlyComorbidity && !String(getReportField(report, ["comorbidities"], "")).trim()) {
     return false;
   }
 
@@ -1937,8 +2142,16 @@ function matchesFilters(report) {
     return false;
   }
 
+  if (admissionSelected !== "all" && getReportField(report, ["admissionStatus"], "Not Admitted") !== admissionSelected) {
+    return false;
+  }
+
+  if (consultationSelected !== "all" && getReportField(report, ["consultationType"], "In-person") !== consultationSelected) {
+    return false;
+  }
+
   if (search) {
-    const haystack = `${patient} ${complaint} ${symptoms} ${diagnosis} ${doctor} ${tests} ${pain} ${oxygen} ${priority} ${triage} ${notes}`;
+    const haystack = `${patient} ${complaint} ${complaintDuration} ${painLocation} ${symptoms} ${diagnosis} ${doctor} ${tests} ${pain} ${adherence} ${oxygen} ${comorbidities} ${admission} ${disposition} ${consultationType} ${priority} ${triage} ${notes}`;
     if (!haystack.includes(search)) {
       return false;
     }
@@ -2013,11 +2226,36 @@ function updatePreviousSummary(filteredEntries, totalStored) {
     const triage = getReportField(entry.report, ["triageRecommendation", "priority"], "Routine");
     return triage === "Urgent" || triage === "Emergency";
   }).length;
+  const icuCases = filteredEntries.filter(
+    (entry) => getReportField(entry.report, ["admissionStatus"], "Not Admitted") === "ICU"
+  ).length;
+  const comorbidityCases = filteredEntries.filter(
+    (entry) => String(getReportField(entry.report, ["comorbidities"], "")).trim() !== ""
+  ).length;
   const today = new Date().toISOString().split("T")[0];
   const followUpDue = filteredEntries.filter((entry) => {
     const followUp = getReportField(entry.report, ["followUpDate"], "");
     return followUp && followUp <= today;
   }).length;
+  const followUpOverdue = filteredEntries.filter((entry) => {
+    const followUp = getReportField(entry.report, ["followUpDate"], "");
+    return followUp && followUp < today;
+  }).length;
+  const painValues = filteredEntries
+    .map((entry) => String(getReportField(entry.report, ["painScore"], "")).trim())
+    .filter((value) => value !== "")
+    .map((value) => Number(value))
+    .filter((pain) => Number.isFinite(pain) && pain >= 0);
+  const highPainCases = filteredEntries.filter((entry) => {
+    const pain = Number(getReportField(entry.report, ["painScore"], 0));
+    return Number.isFinite(pain) && pain >= 7;
+  }).length;
+  const icuTransferCases = filteredEntries.filter(
+    (entry) => getReportField(entry.report, ["disposition"], "Home Care") === "ICU Transfer"
+  ).length;
+  const avgPain = painValues.length > 0
+    ? (painValues.reduce((sum, pain) => sum + pain, 0) / painValues.length).toFixed(1)
+    : "0";
   const avgRisk = visible > 0
     ? Math.round(visibleRisks.reduce((sum, risk) => sum + risk, 0) / visible)
     : 0;
@@ -2028,7 +2266,13 @@ function updatePreviousSummary(filteredEntries, totalStored) {
   const summaryEmergency = byId("summaryEmergency");
   const summaryUrgent = byId("summaryUrgent");
   const summaryFollowUpDue = byId("summaryFollowUpDue");
+  const summaryFollowUpOverdue = byId("summaryFollowUpOverdue");
   const summaryNeedsAttention = byId("summaryNeedsAttention");
+  const summaryICU = byId("summaryICU");
+  const summaryHighPain = byId("summaryHighPain");
+  const summaryIcuTransfer = byId("summaryIcuTransfer");
+  const summaryComorbidity = byId("summaryComorbidity");
+  const summaryAveragePain = byId("summaryAveragePain");
   const summaryAverage = byId("summaryAverage");
 
   if (summaryVisible) {
@@ -2049,8 +2293,26 @@ function updatePreviousSummary(filteredEntries, totalStored) {
   if (summaryFollowUpDue) {
     summaryFollowUpDue.textContent = String(followUpDue);
   }
+  if (summaryFollowUpOverdue) {
+    summaryFollowUpOverdue.textContent = String(followUpOverdue);
+  }
   if (summaryNeedsAttention) {
     summaryNeedsAttention.textContent = String(needsAttention);
+  }
+  if (summaryICU) {
+    summaryICU.textContent = String(icuCases);
+  }
+  if (summaryHighPain) {
+    summaryHighPain.textContent = String(highPainCases);
+  }
+  if (summaryIcuTransfer) {
+    summaryIcuTransfer.textContent = String(icuTransferCases);
+  }
+  if (summaryComorbidity) {
+    summaryComorbidity.textContent = String(comorbidityCases);
+  }
+  if (summaryAveragePain) {
+    summaryAveragePain.textContent = avgPain;
   }
   if (summaryAverage) {
     summaryAverage.textContent = `${avgRisk}%`;
@@ -2092,9 +2354,15 @@ function loadReports() {
     const date = getReportField(report, ["visitDate", "date"]);
     const followUpDate = getReportField(report, ["followUpDate"], "-");
     const priority = getReportField(report, ["priority"], "Routine");
+    const admissionStatus = getReportField(report, ["admissionStatus"], "Not Admitted");
+    const disposition = getReportField(report, ["disposition"], "Home Care");
     const consultationType = getReportField(report, ["consultationType"], "In-person");
     const complaint = getReportField(report, ["chiefComplaint"], "-");
+    const complaintDuration = getReportField(report, ["chiefComplaintDuration"], "-");
+    const painLocation = getReportField(report, ["painLocation"], "-");
     const allergies = getReportField(report, ["knownAllergies"], "-");
+    const medicationAdherence = getReportField(report, ["medicationAdherence"], "-");
+    const comorbidities = getReportField(report, ["comorbidities"], "-");
     const painScore = getReportField(report, ["painScore"], "-");
     const oxygenSupport = getReportField(report, ["oxygenSupport"], "Room Air");
     const temperature = getReportField(report, ["temperature"], "-");
@@ -2129,9 +2397,15 @@ function loadReports() {
       <p><strong>Date:</strong> ${safeText(date)}</p>
       <p><strong>Follow-up:</strong> ${safeText(followUpDate)}</p>
       <p><strong>Priority:</strong> ${safeText(priority)}</p>
+      <p><strong>Admission:</strong> ${safeText(admissionStatus)}</p>
+      <p><strong>Disposition:</strong> ${safeText(disposition)}</p>
       <p><strong>Consultation:</strong> ${safeText(consultationType)}</p>
       <p><strong>Complaint:</strong> ${safeText(complaint)}</p>
+      <p><strong>Complaint Duration:</strong> ${safeText(complaintDuration)}</p>
+      <p><strong>Pain Location:</strong> ${safeText(painLocation)}</p>
       <p><strong>Allergies:</strong> ${safeText(allergies)}</p>
+      <p><strong>Medication Adherence:</strong> ${safeText(medicationAdherence)}</p>
+      <p><strong>Comorbidities:</strong> ${safeText(comorbidities)}</p>
       <p><strong>Pain/Oxygen:</strong> Pain ${safeText(painScore)}/10, ${safeText(oxygenSupport)}</p>
       <p><strong>Vitals:</strong> Temp ${safeText(temperature)}F, SpO2 ${safeText(spo2)}%, Weight ${safeText(weight)}kg, Height ${safeText(height)}cm, BMI ${safeText(bmi)}, Pulse ${safeText(pulseRate)} BPM, Resp ${safeText(respRate)}/min, Sugar ${safeText(bloodSugar)} mg/dL, BP ${safeText(bpSystolic)}/${safeText(bpDiastolic)}</p>
       <p><strong>Status:</strong> ${safeText(status)}</p>
@@ -2273,6 +2547,38 @@ function updateDashboardStats() {
   const followUpToday = reports.filter(
     (report) => getReportField(report, ["followUpDate"], "") === today
   ).length;
+  const followUpOverdue = reports.filter((report) => {
+    const followUp = getReportField(report, ["followUpDate"], "");
+    return followUp && followUp < today;
+  }).length;
+  const admittedCases = reports.filter((report) => {
+    const admissionStatus = getReportField(report, ["admissionStatus"], "Not Admitted");
+    return admissionStatus === "Observation" || admissionStatus === "Admitted" || admissionStatus === "ICU";
+  }).length;
+  const icuCases = reports.filter(
+    (report) => getReportField(report, ["admissionStatus"], "Not Admitted") === "ICU"
+  ).length;
+  const comorbidityCases = reports.filter(
+    (report) => String(getReportField(report, ["comorbidities"], "")).trim() !== ""
+  ).length;
+  const highPainCases = reports.filter((report) => {
+    const pain = Number(getReportField(report, ["painScore"], 0));
+    return Number.isFinite(pain) && pain >= 7;
+  }).length;
+  const teleConsultCases = reports.filter(
+    (report) => getReportField(report, ["consultationType"], "In-person") === "Tele-consult"
+  ).length;
+  const icuTransferCases = reports.filter(
+    (report) => getReportField(report, ["disposition"], "Home Care") === "ICU Transfer"
+  ).length;
+  const painValues = reports
+    .map((report) => String(getReportField(report, ["painScore"], "")).trim())
+    .filter((value) => value !== "")
+    .map((value) => Number(value))
+    .filter((pain) => Number.isFinite(pain) && pain >= 0 && pain <= 10);
+  const averagePain = painValues.length > 0
+    ? (painValues.reduce((sum, pain) => sum + pain, 0) / painValues.length).toFixed(1)
+    : "0";
 
   let lastVisit = "-";
   if (reports.length > 0) {
@@ -2298,8 +2604,16 @@ function updateDashboardStats() {
   const statToday = byId("statToday");
   const statFollowUpDue = byId("statFollowUpDue");
   const statFollowUpToday = byId("statFollowUpToday");
+  const statFollowUpOverdue = byId("statFollowUpOverdue");
   const statNeedsAttention = byId("statNeedsAttention");
   const statTriageEmergency = byId("statTriageEmergency");
+  const statAdmittedCases = byId("statAdmittedCases");
+  const statIcuCases = byId("statIcuCases");
+  const statComorbidityCases = byId("statComorbidityCases");
+  const statHighPainCases = byId("statHighPainCases");
+  const statTeleConsultCases = byId("statTeleConsultCases");
+  const statIcuTransferCases = byId("statIcuTransferCases");
+  const statAveragePain = byId("statAveragePain");
   const statLastVisit = byId("statLastVisit");
 
   if (statTotal) {
@@ -2350,12 +2664,44 @@ function updateDashboardStats() {
     statFollowUpToday.innerText = String(followUpToday);
   }
 
+  if (statFollowUpOverdue) {
+    statFollowUpOverdue.innerText = String(followUpOverdue);
+  }
+
   if (statNeedsAttention) {
     statNeedsAttention.innerText = String(needsAttentionCount);
   }
 
   if (statTriageEmergency) {
     statTriageEmergency.innerText = String(triageEmergencyCount);
+  }
+
+  if (statAdmittedCases) {
+    statAdmittedCases.innerText = String(admittedCases);
+  }
+
+  if (statIcuCases) {
+    statIcuCases.innerText = String(icuCases);
+  }
+
+  if (statComorbidityCases) {
+    statComorbidityCases.innerText = String(comorbidityCases);
+  }
+
+  if (statHighPainCases) {
+    statHighPainCases.innerText = String(highPainCases);
+  }
+
+  if (statTeleConsultCases) {
+    statTeleConsultCases.innerText = String(teleConsultCases);
+  }
+
+  if (statIcuTransferCases) {
+    statIcuTransferCases.innerText = String(icuTransferCases);
+  }
+
+  if (statAveragePain) {
+    statAveragePain.innerText = String(averagePain);
   }
 
   if (statLastVisit) {

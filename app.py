@@ -71,8 +71,12 @@ def init_db() -> None:
                 address TEXT DEFAULT '',
                 contact_phone TEXT DEFAULT '',
                 email TEXT DEFAULT '',
+                occupation TEXT DEFAULT '',
+                emergency_relation TEXT DEFAULT '',
                 insurance_id TEXT DEFAULT '',
                 emergency_contact TEXT DEFAULT '',
+                alternate_phone TEXT DEFAULT '',
+                marital_status TEXT DEFAULT '',
                 updated_at TEXT NOT NULL
             )
             """
@@ -118,7 +122,12 @@ def init_db() -> None:
             {
                 "contact_phone": "TEXT DEFAULT ''",
                 "email": "TEXT DEFAULT ''",
+                "occupation": "TEXT DEFAULT ''",
+                "emergency_relation": "TEXT DEFAULT ''",
                 "insurance_id": "TEXT DEFAULT ''",
+                "emergency_contact": "TEXT DEFAULT ''",
+                "alternate_phone": "TEXT DEFAULT ''",
+                "marital_status": "TEXT DEFAULT ''",
             },
         )
 
@@ -214,7 +223,11 @@ def normalize_profile_payload(data: Dict[str, Any]) -> Dict[str, str]:
         "pincode": str(data.get("pincode", "")).strip(),
         "address": str(data.get("address", "")).strip(),
         "email": str(data.get("email", "")).strip().lower(),
+        "occupation": str(data.get("occupation", "")).strip(),
+        "emergencyRelation": str(data.get("emergencyRelation", "")).strip(),
         "insuranceId": str(data.get("insuranceId", "")).strip().upper(),
+        "alternatePhone": str(data.get("alternatePhone", "")).strip(),
+        "maritalStatus": str(data.get("maritalStatus", "")).strip(),
         "emergencyContact": str(data.get("emergencyContact", "")).strip(),
     }
 
@@ -390,7 +403,8 @@ def get_profile():
         row = db.execute(
             """
             SELECT clinic_code, name, dob, gender, blood_group, state, city,
-                   pincode, address, contact_phone, email, insurance_id, emergency_contact
+                   pincode, address, contact_phone, email, occupation, emergency_relation,
+                   insurance_id, emergency_contact, alternate_phone, marital_status
             FROM users
             WHERE phone = ?
             """,
@@ -414,7 +428,11 @@ def get_profile():
                     "address": "",
                     "email": login_email,
                     "loginEmail": login_email,
+                    "occupation": "",
+                    "emergencyRelation": "",
                     "insuranceId": "",
+                    "alternatePhone": "",
+                    "maritalStatus": "",
                     "emergencyContact": "",
                 },
             }
@@ -436,7 +454,11 @@ def get_profile():
                 "address": row["address"] or "",
                 "email": (row["email"] or "").strip() or login_email,
                 "loginEmail": login_email,
+                "occupation": row["occupation"] or "",
+                "emergencyRelation": row["emergency_relation"] or "",
                 "insuranceId": row["insurance_id"] or "",
+                "alternatePhone": row["alternate_phone"] or "",
+                "maritalStatus": row["marital_status"] or "",
                 "emergencyContact": row["emergency_contact"] or "",
             },
         }
@@ -463,19 +485,32 @@ def save_profile():
         return json_error("Pincode must be a valid 6-digit number.", 400)
     if payload["email"] and not EMAIL_RE.match(payload["email"]):
         return json_error("Please enter a valid email address.", 400)
+    if payload["occupation"] and len(payload["occupation"]) > 60:
+        return json_error("Occupation is too long.", 400)
+    if payload["emergencyRelation"] and not re.match(r"^[a-zA-Z\s]{2,30}$", payload["emergencyRelation"]):
+        return json_error("Emergency relation should contain letters only.", 400)
     if not payload["email"] and login_email:
         payload["email"] = login_email
     if payload["emergencyContact"] and not PHONE_RE.match(payload["emergencyContact"]):
         return json_error("Emergency contact must be a valid 10-digit number.", 400)
+    if payload["alternatePhone"] and not PHONE_RE.match(payload["alternatePhone"]):
+        return json_error("Alternate phone must be a valid 10-digit number.", 400)
+    if payload["alternatePhone"] and payload["alternatePhone"] == payload["phone"]:
+        return json_error("Alternate phone should be different from login phone.", 400)
+    if payload["alternatePhone"] and payload["alternatePhone"] == payload["emergencyContact"]:
+        return json_error("Alternate phone should be different from emergency contact.", 400)
+    if payload["maritalStatus"] and payload["maritalStatus"] not in {"Single", "Married", "Divorced", "Widowed"}:
+        return json_error("Please select a valid marital status.", 400)
 
     with get_db() as db:
         db.execute(
             """
             INSERT INTO users (
                 phone, clinic_code, name, dob, gender, blood_group,
-                state, city, pincode, address, contact_phone, email, insurance_id, emergency_contact, updated_at
+                state, city, pincode, address, contact_phone, email, occupation, emergency_relation,
+                insurance_id, alternate_phone, marital_status, emergency_contact, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(phone) DO UPDATE SET
                 clinic_code = excluded.clinic_code,
                 name = excluded.name,
@@ -488,7 +523,11 @@ def save_profile():
                 address = excluded.address,
                 contact_phone = excluded.contact_phone,
                 email = excluded.email,
+                occupation = excluded.occupation,
+                emergency_relation = excluded.emergency_relation,
                 insurance_id = excluded.insurance_id,
+                alternate_phone = excluded.alternate_phone,
+                marital_status = excluded.marital_status,
                 emergency_contact = excluded.emergency_contact,
                 updated_at = excluded.updated_at
             """,
@@ -505,7 +544,11 @@ def save_profile():
                 payload["address"],
                 payload["phone"],
                 payload["email"],
+                payload["occupation"],
+                payload["emergencyRelation"],
                 payload["insuranceId"],
+                payload["alternatePhone"],
+                payload["maritalStatus"],
                 payload["emergencyContact"],
                 isoformat_utc(utc_now()),
             ),
@@ -572,6 +615,12 @@ def report_stats():
         except Exception:
             return 0.0
 
+    def pain_value(report: Dict[str, Any]) -> float:
+        try:
+            return float(report.get("painScore", "") or 0)
+        except Exception:
+            return 0.0
+
     total = len(reports)
     high_risk = sum(1 for report in reports if risk_value(report) >= 70)
     critical = sum(1 for report in reports if risk_value(report) >= 80)
@@ -592,6 +641,43 @@ def report_stats():
         1 for report in reports if str(report.get("followUpDate", "")).strip() and str(report.get("followUpDate")) <= today
     )
     follow_up_today = sum(1 for report in reports if str(report.get("followUpDate", "")).strip() == today)
+    follow_up_overdue = sum(1 for report in reports if str(report.get("followUpDate", "")).strip() and str(report.get("followUpDate")) < today)
+    admitted_cases = sum(
+        1
+        for report in reports
+        if str(report.get("admissionStatus", "Not Admitted")).strip() in {"Observation", "Admitted", "ICU"}
+    )
+    icu_cases = sum(
+        1
+        for report in reports
+        if str(report.get("admissionStatus", "Not Admitted")).strip() == "ICU"
+    )
+    comorbidity_cases = sum(
+        1
+        for report in reports
+        if str(report.get("comorbidities", "")).strip() != ""
+    )
+    high_pain_cases = sum(
+        1
+        for report in reports
+        if str(report.get("painScore", "")).strip() != "" and 7 <= pain_value(report) <= 10
+    )
+    tele_consult_cases = sum(
+        1
+        for report in reports
+        if str(report.get("consultationType", "In-person")).strip() == "Tele-consult"
+    )
+    icu_transfer_cases = sum(
+        1
+        for report in reports
+        if str(report.get("disposition", "Home Care")).strip() == "ICU Transfer"
+    )
+    pain_samples = [
+        pain_value(report)
+        for report in reports
+        if str(report.get("painScore", "")).strip() != "" and 0 <= pain_value(report) <= 10
+    ]
+    average_pain = round(sum(pain_samples) / len(pain_samples), 1) if pain_samples else 0
     average_risk = round(sum(risk_value(report) for report in reports) / total) if total > 0 else 0
 
     return jsonify(
@@ -608,6 +694,14 @@ def report_stats():
                 "triageNeedsAttention": triage_needs_attention,
                 "followUpDue": follow_up_due,
                 "followUpToday": follow_up_today,
+                "followUpOverdue": follow_up_overdue,
+                "admittedCases": admitted_cases,
+                "icuCases": icu_cases,
+                "comorbidityCases": comorbidity_cases,
+                "highPainCases": high_pain_cases,
+                "teleConsultCases": tele_consult_cases,
+                "icuTransferCases": icu_transfer_cases,
+                "averagePain": average_pain,
                 "averageRisk": average_risk,
             },
         }

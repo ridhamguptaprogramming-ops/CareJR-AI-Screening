@@ -50,6 +50,22 @@
       <p id="summaryNeedsAttention">0</p>
     </article>
     <article class="mini-stat">
+      <h3>ICU Cases</h3>
+      <p id="summaryICU">0</p>
+    </article>
+    <article class="mini-stat">
+      <h3>High Pain</h3>
+      <p id="summaryHighPain">0</p>
+    </article>
+    <article class="mini-stat">
+      <h3>ICU Transfer</h3>
+      <p id="summaryIcuTransfer">0</p>
+    </article>
+    <article class="mini-stat">
+      <h3>Comorbidity Cases</h3>
+      <p id="summaryComorbidity">0</p>
+    </article>
+    <article class="mini-stat">
       <h3>Average Pain</h3>
       <p id="summaryAveragePain">0</p>
     </article>
@@ -90,6 +106,13 @@
       <option value="ICU">ICU</option>
     </select>
 
+    <select id="consultationFilter" aria-label="Consultation filter" onchange="filterReports()">
+      <option value="all">Consultation: All</option>
+      <option value="In-person">In-person</option>
+      <option value="Tele-consult">Tele-consult</option>
+      <option value="Home Visit">Home Visit</option>
+    </select>
+
     <select id="sortReports" aria-label="Sort reports" onchange="filterReports()">
       <option value="newest">Sort: Newest</option>
       <option value="oldest">Sort: Oldest</option>
@@ -102,11 +125,16 @@
       <input id="highRiskOnly" type="checkbox" onchange="filterReports()">
       High risk only (>= 70%)
     </label>
+
+    <label class="inline-check" for="comorbidityOnly">
+      <input id="comorbidityOnly" type="checkbox" onchange="filterReports()">
+      Comorbidity only
+    </label>
   </section>
 
   <p id="reportsMessage" class="inline-message" aria-live="polite"></p>
   <div id="reportContainer"></div>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=20260313c"></script>
 </body>
 </html>
