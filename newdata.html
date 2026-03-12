@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CareJR AI Screening</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="newdata-page">
+  <div class="container">
+    <div class="left">
+      <h2>CareJR AI Monitoring</h2>
+      <video id="video" autoplay muted></video>
+
+      <div class="status">Breathing: <span id="breathing">Idle</span></div>
+      <div class="status">Pulse: <span id="heart">Idle</span></div>
+    </div>
+
+    <div class="right">
+      <h2>Patient Entry</h2>
+
+      <input id="patientName" placeholder="Patient Name">
+      <input type="date" id="visitDate">
+
+      <textarea id="conversation" placeholder="Doctor Patient Conversation"></textarea>
+
+      <button class="voice" onclick="startConversation()">Start Conversation</button>
+      <button class="stop" onclick="stopConversation()">Stop</button>
+
+      <textarea id="symptoms" placeholder="Detected Symptoms"></textarea>
+      <textarea id="medicines" placeholder="Suggested Medicines"></textarea>
+      <textarea id="tests" placeholder="Suggested Tests"></textarea>
+
+      <input id="doctor" placeholder="Doctor Signature">
+
+      <h3>Risk Score: <span id="risk">0</span>%</h3>
+
+      <button onclick="generateReport()">Generate Report</button>
+      <button onclick="sendPharmacy()">Move to Pharmacy</button>
+      <button onclick="sendLab()">Move to Laboratory</button>
+
+      <div id="after" style="display:none">
+        <button onclick="downloadPDF()">Download PDF</button>
+        <button onclick="storeReport()">Approve & Store</button>
+      </div>
+
+      <div id="preview" class="preview"></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

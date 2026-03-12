@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="login-page">
+  <div class="box">
+    <h2>OTP Login</h2>
+    <input type="tel" id="phone" placeholder="Phone Number" maxlength="10">
+    <button onclick="sendOTP()">Send OTP</button>
+
+    <div id="otpBox" style="display:none;">
+      <input type="number" id="otp" placeholder="Enter OTP">
+      <button onclick="verify()">Verify</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
