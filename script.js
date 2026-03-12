@@ -2,9 +2,14 @@ const STORAGE_KEYS = {
   PHONE: "phone",
   GENERATED_OTP: "generatedOtp",
   OTP_SENT_AT: "otpSentAt",
+  CLINIC_CODE: "clinicCode",
   NAME: "name",
   DOB: "dob",
+  GENDER: "gender",
+  BLOOD_GROUP: "bloodGroup",
   STATE: "state",
+  CITY: "city",
+  EMERGENCY_CONTACT: "emergencyContact",
   CURRENT_REPORT: "currentReport",
   REPORTS: "reports",
   DRAFT_REPORT: "draftReport"
@@ -82,6 +87,62 @@ function normalizePhoneInput(event) {
   input.value = input.value.replace(/\D/g, "").slice(0, 10);
 }
 
+function normalizeTextInput(event) {
+  const input = event.target;
+  input.value = input.value.replace(/[^\w\s-]/g, "").toUpperCase();
+}
+
+function calculateAgeFromDOB(dobValue) {
+  if (!dobValue) {
+    return "";
+  }
+
+  const dobDate = new Date(dobValue);
+  if (Number.isNaN(dobDate.getTime())) {
+    return "";
+  }
+
+  const today = new Date();
+  let age = today.getFullYear() - dobDate.getFullYear();
+  const monthDiff = today.getMonth() - dobDate.getMonth();
+  const dayDiff = today.getDate() - dobDate.getDate();
+
+  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+    age -= 1;
+  }
+
+  return age >= 0 ? String(age) : "";
+}
+
+function calculateBMI(weightKg, heightCm) {
+  const weight = Number(weightKg);
+  const height = Number(heightCm);
+
+  if (!weight || !height || weight <= 0 || height <= 0) {
+    return "";
+  }
+
+  const heightM = height / 100;
+  const bmi = weight / (heightM * heightM);
+  if (!Number.isFinite(bmi)) {
+    return "";
+  }
+
+  return bmi.toFixed(1);
+}
+
+function updateBMIField() {
+  const weightInput = byId("weight");
+  const heightInput = byId("height");
+  const bmiInput = byId("bmi");
+
+  if (!weightInput || !heightInput || !bmiInput) {
+    return;
+  }
+
+  bmiInput.value = calculateBMI(weightInput.value, heightInput.value);
+}
+
 function applyDateLimits() {
   const today = new Date().toISOString().split("T")[0];
 
@@ -132,11 +193,21 @@ function setupFormHandlers() {
     phoneInput.addEventListener("input", normalizePhoneInput);
   }
 
+  const emergencyContact = byId("emergencyContact");
+  if (emergencyContact && emergencyContact.tagName === "INPUT") {
+    emergencyContact.addEventListener("input", normalizePhoneInput);
+  }
+
   const otpInput = byId("otp");
   if (otpInput) {
     otpInput.addEventListener("input", (event) => {
       event.target.value = event.target.value.replace(/\D/g, "").slice(0, 4);
     });
+  }
+
+  const clinicCode = byId("clinicCode");
+  if (clinicCode && clinicCode.tagName === "INPUT") {
+    clinicCode.addEventListener("input", normalizeTextInput);
   }
 
   const visitDate = byId("visitDate");
@@ -150,12 +221,69 @@ function setupFormHandlers() {
       }
     });
   }
+
+  const dobInput = byId("dob");
+  if (dobInput && dobInput.tagName === "INPUT") {
+    dobInput.addEventListener("change", () => {
+      const patientAge = byId("patientAge");
+      if (patientAge) {
+        patientAge.value = calculateAgeFromDOB(dobInput.value);
+      }
+    });
+  }
+
+  const weightInput = byId("weight");
+  const heightInput = byId("height");
+  if (weightInput && heightInput) {
+    weightInput.addEventListener("input", updateBMIField);
+    heightInput.addEventListener("input", updateBMIField);
+  }
 }
 
 function hydrateSharedData() {
+  const clinicInput = byId("clinicCode");
+  if (clinicInput && clinicInput.tagName === "INPUT" && !clinicInput.value) {
+    clinicInput.value = localStorage.getItem(STORAGE_KEYS.CLINIC_CODE) || "";
+  }
+
   const phoneInput = byId("phone");
   if (phoneInput && phoneInput.tagName === "INPUT" && !phoneInput.value) {
     phoneInput.value = localStorage.getItem(STORAGE_KEYS.PHONE) || "";
+  }
+
+  const nameInput = byId("name");
+  if (nameInput && nameInput.tagName === "INPUT" && !nameInput.value) {
+    nameInput.value = localStorage.getItem(STORAGE_KEYS.NAME) || "";
+  }
+
+  const dobInput = byId("dob");
+  if (dobInput && dobInput.tagName === "INPUT" && !dobInput.value) {
+    dobInput.value = localStorage.getItem(STORAGE_KEYS.DOB) || "";
+  }
+
+  const genderInput = byId("gender");
+  if (genderInput && genderInput.tagName === "SELECT" && !genderInput.value) {
+    genderInput.value = localStorage.getItem(STORAGE_KEYS.GENDER) || "";
+  }
+
+  const stateInput = byId("state");
+  if (stateInput && stateInput.tagName === "SELECT" && !stateInput.value) {
+    stateInput.value = localStorage.getItem(STORAGE_KEYS.STATE) || "";
+  }
+
+  const cityInput = byId("city");
+  if (cityInput && cityInput.tagName === "INPUT" && !cityInput.value) {
+    cityInput.value = localStorage.getItem(STORAGE_KEYS.CITY) || "";
+  }
+
+  const bloodGroupInput = byId("bloodGroup");
+  if (bloodGroupInput && bloodGroupInput.tagName === "SELECT" && !bloodGroupInput.value) {
+    bloodGroupInput.value = localStorage.getItem(STORAGE_KEYS.BLOOD_GROUP) || "";
+  }
+
+  const emergencyInput = byId("emergencyContact");
+  if (emergencyInput && emergencyInput.tagName === "INPUT" && !emergencyInput.value) {
+    emergencyInput.value = localStorage.getItem(STORAGE_KEYS.EMERGENCY_CONTACT) || "";
   }
 
   const username = byId("username");
@@ -173,9 +301,44 @@ function hydrateSharedData() {
     state.innerText = localStorage.getItem(STORAGE_KEYS.STATE) || "-";
   }
 
+  const gender = byId("gender");
+  if (gender && gender.tagName !== "SELECT") {
+    gender.innerText = localStorage.getItem(STORAGE_KEYS.GENDER) || "-";
+  }
+
+  const bloodGroup = byId("bloodGroup");
+  if (bloodGroup && bloodGroup.tagName !== "SELECT") {
+    bloodGroup.innerText = localStorage.getItem(STORAGE_KEYS.BLOOD_GROUP) || "-";
+  }
+
+  const city = byId("city");
+  if (city && city.tagName !== "INPUT") {
+    city.innerText = localStorage.getItem(STORAGE_KEYS.CITY) || "-";
+  }
+
+  const emergency = byId("emergencyContact");
+  if (emergency && emergency.tagName !== "INPUT") {
+    emergency.innerText = localStorage.getItem(STORAGE_KEYS.EMERGENCY_CONTACT) || "-";
+  }
+
+  const clinic = byId("clinicCode");
+  if (clinic && clinic.tagName !== "INPUT") {
+    clinic.innerText = localStorage.getItem(STORAGE_KEYS.CLINIC_CODE) || "-";
+  }
+
   const phone = byId("phone");
   if (phone && phone.tagName !== "INPUT") {
     phone.innerText = localStorage.getItem(STORAGE_KEYS.PHONE) || "-";
+  }
+
+  const patientName = byId("patientName");
+  if (patientName && patientName.tagName === "INPUT" && !patientName.value) {
+    patientName.value = localStorage.getItem(STORAGE_KEYS.NAME) || "";
+  }
+
+  const patientAge = byId("patientAge");
+  if (patientAge && patientAge.tagName === "INPUT" && !patientAge.value) {
+    patientAge.value = calculateAgeFromDOB(localStorage.getItem(STORAGE_KEYS.DOB) || "");
   }
 }
 
@@ -192,13 +355,26 @@ function restoreDraftIfAvailable() {
 
   const fields = [
     ["patientName", "patientName"],
+    ["patientAge", "patientAge"],
     ["visitDate", "visitDate"],
     ["followUpDate", "followUpDate"],
     ["priority", "priority"],
+    ["consultationType", "consultationType"],
+    ["chiefComplaint", "chiefComplaint"],
     ["conversation", "conversation"],
+    ["knownAllergies", "knownAllergies"],
+    ["temperature", "temperature"],
+    ["spo2", "spo2"],
+    ["weight", "weight"],
+    ["height", "height"],
+    ["bmi", "bmi"],
+    ["bpSystolic", "bpSystolic"],
+    ["bpDiastolic", "bpDiastolic"],
     ["symptoms", "symptoms"],
+    ["diagnosis", "diagnosis"],
     ["medicines", "medicines"],
     ["tests", "tests"],
+    ["carePlan", "carePlan"],
     ["clinicalNotes", "clinicalNotes"],
     ["doctor", "doctor"]
   ];
@@ -226,6 +402,8 @@ function restoreDraftIfAvailable() {
       riskLevel.innerText = getRiskLevel(Number(draft.risk));
     }
   }
+
+  updateBMIField();
 
   showMessage("newDataMessage", "Draft restored successfully.");
 }
@@ -328,6 +506,8 @@ function sendOTP() {
     return;
   }
 
+  const clinicCodeInput = byId("clinicCode");
+
   const phone = phoneInput.value.trim();
   if (!/^\d{10}$/.test(phone)) {
     showMessage("authMessage", "Enter a valid 10-digit phone number.", "error");
@@ -339,6 +519,9 @@ function sendOTP() {
   localStorage.setItem(STORAGE_KEYS.GENERATED_OTP, generatedOtp);
   localStorage.setItem(STORAGE_KEYS.PHONE, phone);
   localStorage.setItem(STORAGE_KEYS.OTP_SENT_AT, String(Date.now()));
+  if (clinicCodeInput) {
+    localStorage.setItem(STORAGE_KEYS.CLINIC_CODE, clinicCodeInput.value.trim().toUpperCase());
+  }
 
   const otpBox = byId("otpBox");
   if (otpBox) {
@@ -406,15 +589,25 @@ function verify() {
 function submitData() {
   const name = byId("name");
   const dob = byId("dob");
+  const gender = byId("gender");
   const state = byId("state");
+  const city = byId("city");
+  const bloodGroup = byId("bloodGroup");
+  const emergencyContact = byId("emergencyContact");
+  const phone = byId("phone");
 
-  if (!name || !dob || !state) {
+  if (!name || !dob || !gender || !state || !city || !bloodGroup || !emergencyContact) {
     return;
   }
 
   const fullName = name.value.trim();
   const dobValue = dob.value;
+  const genderValue = gender.value;
   const stateValue = state.value;
+  const cityValue = city.value.trim();
+  const bloodGroupValue = bloodGroup.value;
+  const emergencyValue = emergencyContact.value.trim();
+  const phoneValue = phone ? phone.value.trim() : "";
 
   if (!/^[a-zA-Z\s.'-]{2,60}$/.test(fullName)) {
     showMessage("profileMessage", "Enter a valid full name.", "error");
@@ -442,9 +635,37 @@ function submitData() {
     return;
   }
 
+  if (!genderValue) {
+    showMessage("profileMessage", "Please select gender.", "error");
+    gender.focus();
+    return;
+  }
+
+  if (cityValue.length < 2) {
+    showMessage("profileMessage", "Please enter a valid city.", "error");
+    city.focus();
+    return;
+  }
+
+  if (!/^\d{10}$/.test(emergencyValue)) {
+    showMessage("profileMessage", "Emergency contact must be a valid 10-digit number.", "error");
+    emergencyContact.focus();
+    return;
+  }
+
+  if (phoneValue && emergencyValue === phoneValue) {
+    showMessage("profileMessage", "Emergency contact should be different from login phone.", "error");
+    emergencyContact.focus();
+    return;
+  }
+
   localStorage.setItem(STORAGE_KEYS.NAME, fullName);
   localStorage.setItem(STORAGE_KEYS.DOB, dobValue);
+  localStorage.setItem(STORAGE_KEYS.GENDER, genderValue);
+  localStorage.setItem(STORAGE_KEYS.BLOOD_GROUP, bloodGroupValue);
   localStorage.setItem(STORAGE_KEYS.STATE, stateValue);
+  localStorage.setItem(STORAGE_KEYS.CITY, cityValue);
+  localStorage.setItem(STORAGE_KEYS.EMERGENCY_CONTACT, emergencyValue);
 
   window.location.href = "dashboard.html";
 }
@@ -462,9 +683,14 @@ function logout() {
   localStorage.removeItem(STORAGE_KEYS.PHONE);
   localStorage.removeItem(STORAGE_KEYS.GENERATED_OTP);
   localStorage.removeItem(STORAGE_KEYS.OTP_SENT_AT);
+  localStorage.removeItem(STORAGE_KEYS.CLINIC_CODE);
   localStorage.removeItem(STORAGE_KEYS.NAME);
   localStorage.removeItem(STORAGE_KEYS.DOB);
+  localStorage.removeItem(STORAGE_KEYS.GENDER);
+  localStorage.removeItem(STORAGE_KEYS.BLOOD_GROUP);
   localStorage.removeItem(STORAGE_KEYS.STATE);
+  localStorage.removeItem(STORAGE_KEYS.CITY);
+  localStorage.removeItem(STORAGE_KEYS.EMERGENCY_CONTACT);
   localStorage.removeItem(STORAGE_KEYS.CURRENT_REPORT);
   localStorage.removeItem(STORAGE_KEYS.DRAFT_REPORT);
   window.location.href = "login.html";
@@ -636,10 +862,14 @@ function analyze(text) {
     cough: { w: 15, m: "Cough Syrup", t: "Chest X-ray" },
     cold: { w: 10, m: "Antihistamine", t: "CBC" },
     headache: { w: 10, m: "Ibuprofen", t: "CT Scan" },
+    pain: { w: 18, m: "Analgesic", t: "Pain Panel" },
+    dizziness: { w: 20, m: "Hydration + Observation", t: "BP Monitoring" },
     vomiting: { w: 15, m: "ORS", t: "Stool Test" },
     breath: { w: 25, m: "Inhaler", t: "Spirometry" },
     chest: { w: 30, m: "Aspirin", t: "ECG" },
     weakness: { w: 10, m: "Multivitamin", t: "Vitamin Test" },
+    fatigue: { w: 12, m: "Nutritional Support", t: "Thyroid Panel" },
+    infection: { w: 22, m: "Antibiotic (per doctor)", t: "CRP Test" },
     diarrhea: { w: 18, m: "ORS", t: "Electrolyte Panel" },
     diabetes: { w: 25, m: "Metformin", t: "HbA1c" },
     hypertension: { w: 25, m: "Amlodipine", t: "Blood Pressure Panel" }
@@ -682,22 +912,35 @@ function getRiskLevel(risk) {
 }
 
 function runAI() {
+  const chiefComplaint = byId("chiefComplaint");
   const conversation = byId("conversation");
+  const knownAllergies = byId("knownAllergies");
   const symptoms = byId("symptoms");
+  const diagnosis = byId("diagnosis");
   const medicines = byId("medicines");
   const tests = byId("tests");
   const risk = byId("risk");
   const riskLevel = byId("riskLevel");
 
-  if (!conversation || !symptoms || !medicines || !tests || !risk) {
+  if (!conversation || !symptoms || !medicines || !tests || !risk || !diagnosis) {
     return;
   }
 
-  const result = analyze(conversation.value);
+  const sourceText = [
+    chiefComplaint ? chiefComplaint.value : "",
+    conversation.value,
+    knownAllergies ? knownAllergies.value : ""
+  ].join(" ");
+  const result = analyze(sourceText);
 
   symptoms.value = result.symptoms || "No clear symptoms detected";
   medicines.value = result.medicines || "Observation / hydration advised";
   tests.value = result.tests || "No immediate test suggested";
+  if (!diagnosis.value.trim()) {
+    diagnosis.value = result.symptoms
+      ? `Likely related to ${result.symptoms}. Clinical confirmation needed.`
+      : "Under observation. No strong indicator found from transcript.";
+  }
   risk.innerText = String(result.risk);
 
   if (riskLevel) {
@@ -707,13 +950,26 @@ function runAI() {
 
 function buildCurrentReport() {
   const patientName = byId("patientName");
+  const patientAge = byId("patientAge");
   const visitDate = byId("visitDate");
   const followUpDate = byId("followUpDate");
   const priority = byId("priority");
+  const consultationType = byId("consultationType");
+  const chiefComplaint = byId("chiefComplaint");
   const conversation = byId("conversation");
+  const knownAllergies = byId("knownAllergies");
+  const temperature = byId("temperature");
+  const spo2 = byId("spo2");
+  const weight = byId("weight");
+  const height = byId("height");
+  const bmi = byId("bmi");
+  const bpSystolic = byId("bpSystolic");
+  const bpDiastolic = byId("bpDiastolic");
   const symptoms = byId("symptoms");
+  const diagnosis = byId("diagnosis");
   const medicines = byId("medicines");
   const tests = byId("tests");
+  const carePlan = byId("carePlan");
   const clinicalNotes = byId("clinicalNotes");
   const doctor = byId("doctor");
   const risk = byId("risk");
@@ -728,13 +984,26 @@ function buildCurrentReport() {
     id: `report-${Date.now()}`,
     createdAt: new Date().toISOString(),
     patientName: patientName.value.trim(),
+    patientAge: patientAge ? patientAge.value.trim() : "",
     visitDate: visitDate.value,
     followUpDate: followUpDate ? followUpDate.value : "",
     priority: priority ? priority.value : "Routine",
+    consultationType: consultationType ? consultationType.value : "In-person",
+    chiefComplaint: chiefComplaint ? chiefComplaint.value.trim() : "",
     conversation: (conversation && conversation.value.trim()) || "",
+    knownAllergies: knownAllergies ? knownAllergies.value.trim() : "",
+    temperature: temperature ? temperature.value : "",
+    spo2: spo2 ? spo2.value : "",
+    weight: weight ? weight.value : "",
+    height: height ? height.value : "",
+    bmi: bmi ? (bmi.value || calculateBMI(weight ? weight.value : "", height ? height.value : "")) : "",
+    bpSystolic: bpSystolic ? bpSystolic.value : "",
+    bpDiastolic: bpDiastolic ? bpDiastolic.value : "",
     symptoms: symptoms.value.trim(),
+    diagnosis: diagnosis ? diagnosis.value.trim() : "",
     medicines: medicines.value.trim(),
     tests: tests.value.trim(),
+    carePlan: carePlan ? carePlan.value.trim() : "",
     clinicalNotes: (clinicalNotes && clinicalNotes.value.trim()) || "",
     risk: Number(risk.innerText) || 0,
     riskLevel: getRiskLevel(Number(risk.innerText) || 0),
@@ -773,6 +1042,33 @@ function generateReport() {
     return;
   }
 
+  if ((report.bpSystolic && !report.bpDiastolic) || (!report.bpSystolic && report.bpDiastolic)) {
+    showMessage("newDataMessage", "Please enter both BP systolic and diastolic values.", "error");
+    (byId("bpSystolic") || byId("bpDiastolic")).focus();
+    return;
+  }
+
+  if ((report.weight && !report.height) || (!report.weight && report.height)) {
+    showMessage("newDataMessage", "Please enter both weight and height for BMI.", "error");
+    (byId("weight") || byId("height")).focus();
+    return;
+  }
+
+  if (report.spo2 && (Number(report.spo2) < 50 || Number(report.spo2) > 100)) {
+    showMessage("newDataMessage", "SpO2 value must be between 50 and 100.", "error");
+    byId("spo2").focus();
+    return;
+  }
+
+  if (report.weight && report.height) {
+    const computedBmi = calculateBMI(report.weight, report.height);
+    report.bmi = computedBmi;
+    const bmiInput = byId("bmi");
+    if (bmiInput) {
+      bmiInput.value = computedBmi;
+    }
+  }
+
   if (!report.doctor) {
     showMessage("newDataMessage", "Please enter doctor name/signature.", "error");
     byId("doctor").focus();
@@ -784,12 +1080,19 @@ function generateReport() {
   preview.innerHTML = `
     <h3>Report Preview</h3>
     <p><strong>Patient:</strong> ${safeText(report.patientName)}</p>
+    <p><strong>Age:</strong> ${safeText(report.patientAge || "-")}</p>
     <p><strong>Date:</strong> ${safeText(report.visitDate)}</p>
     <p><strong>Follow-up:</strong> ${safeText(report.followUpDate || "-")}</p>
     <p><strong>Priority:</strong> ${safeText(report.priority)}</p>
+    <p><strong>Consultation:</strong> ${safeText(report.consultationType || "-")}</p>
+    <p><strong>Complaint:</strong> ${safeText(report.chiefComplaint || "-")}</p>
+    <p><strong>Allergies:</strong> ${safeText(report.knownAllergies || "-")}</p>
+    <p><strong>Vitals:</strong> Temp ${safeText(report.temperature || "-")}F, SpO2 ${safeText(report.spo2 || "-")}%, Weight ${safeText(report.weight || "-")}kg, Height ${safeText(report.height || "-")}cm, BMI ${safeText(report.bmi || "-")}, BP ${safeText(report.bpSystolic || "-")}/${safeText(report.bpDiastolic || "-")}</p>
     <p><strong>Symptoms:</strong> ${safeText(report.symptoms)}</p>
+    <p><strong>Diagnosis:</strong> ${safeText(report.diagnosis || "-")}</p>
     <p><strong>Medicines:</strong> ${safeText(report.medicines)}</p>
     <p><strong>Tests:</strong> ${safeText(report.tests)}</p>
+    <p><strong>Care Plan:</strong> ${safeText(report.carePlan || "-")}</p>
     <p><strong>Risk:</strong> ${safeText(report.risk)}% (${safeText(report.riskLevel)})</p>
     <p><strong>Doctor:</strong> ${safeText(report.doctor)}</p>
     <p><strong>Additional Notes:</strong> ${safeText(report.clinicalNotes || "-")}</p>
@@ -802,13 +1105,26 @@ function generateReport() {
 function saveDraft() {
   const draft = {
     patientName: (byId("patientName") && byId("patientName").value.trim()) || "",
+    patientAge: (byId("patientAge") && byId("patientAge").value.trim()) || "",
     visitDate: (byId("visitDate") && byId("visitDate").value) || "",
     followUpDate: (byId("followUpDate") && byId("followUpDate").value) || "",
     priority: (byId("priority") && byId("priority").value) || "Routine",
+    consultationType: (byId("consultationType") && byId("consultationType").value) || "In-person",
+    chiefComplaint: (byId("chiefComplaint") && byId("chiefComplaint").value.trim()) || "",
     conversation: (byId("conversation") && byId("conversation").value.trim()) || "",
+    knownAllergies: (byId("knownAllergies") && byId("knownAllergies").value.trim()) || "",
+    temperature: (byId("temperature") && byId("temperature").value) || "",
+    spo2: (byId("spo2") && byId("spo2").value) || "",
+    weight: (byId("weight") && byId("weight").value) || "",
+    height: (byId("height") && byId("height").value) || "",
+    bmi: (byId("bmi") && byId("bmi").value) || "",
+    bpSystolic: (byId("bpSystolic") && byId("bpSystolic").value) || "",
+    bpDiastolic: (byId("bpDiastolic") && byId("bpDiastolic").value) || "",
     symptoms: (byId("symptoms") && byId("symptoms").value.trim()) || "",
+    diagnosis: (byId("diagnosis") && byId("diagnosis").value.trim()) || "",
     medicines: (byId("medicines") && byId("medicines").value.trim()) || "",
     tests: (byId("tests") && byId("tests").value.trim()) || "",
+    carePlan: (byId("carePlan") && byId("carePlan").value.trim()) || "",
     clinicalNotes: (byId("clinicalNotes") && byId("clinicalNotes").value.trim()) || "",
     doctor: (byId("doctor") && byId("doctor").value.trim()) || "",
     risk: Number((byId("risk") && byId("risk").innerText) || 0)
@@ -821,11 +1137,22 @@ function saveDraft() {
 function resetNewDataForm() {
   [
     "patientName",
+    "chiefComplaint",
     "followUpDate",
     "conversation",
+    "knownAllergies",
+    "temperature",
+    "spo2",
+    "weight",
+    "height",
+    "bmi",
+    "bpSystolic",
+    "bpDiastolic",
     "symptoms",
+    "diagnosis",
     "medicines",
     "tests",
+    "carePlan",
     "clinicalNotes",
     "doctor"
   ].forEach((id) => {
@@ -840,6 +1167,8 @@ function resetNewDataForm() {
   const preview = byId("preview");
   const after = byId("after");
   const priority = byId("priority");
+  const consultationType = byId("consultationType");
+  const patientAge = byId("patientAge");
 
   if (risk) {
     risk.innerText = "0";
@@ -860,6 +1189,16 @@ function resetNewDataForm() {
   if (priority) {
     priority.value = "Routine";
   }
+
+  if (consultationType) {
+    consultationType.value = "In-person";
+  }
+
+  if (patientAge) {
+    patientAge.value = calculateAgeFromDOB(localStorage.getItem(STORAGE_KEYS.DOB) || "");
+  }
+
+  updateBMIField();
 
   localStorage.removeItem(STORAGE_KEYS.CURRENT_REPORT);
   showMessage("newDataMessage", "Form reset complete.");
@@ -922,13 +1261,26 @@ function downloadPDF(index) {
   }
 
   const patientName = getReportField(data, ["patientName", "name"], "Medical_Report");
+  const patientAge = getReportField(data, ["patientAge"], "-");
   const visitDate = getReportField(data, ["visitDate", "date"]);
   const followUpDate = getReportField(data, ["followUpDate"], "-");
   const priority = getReportField(data, ["priority"], "Routine");
+  const consultationType = getReportField(data, ["consultationType"], "In-person");
+  const chiefComplaint = getReportField(data, ["chiefComplaint"], "-");
+  const knownAllergies = getReportField(data, ["knownAllergies"], "-");
+  const temperature = getReportField(data, ["temperature"], "-");
+  const spo2 = getReportField(data, ["spo2"], "-");
+  const weight = getReportField(data, ["weight"], "-");
+  const height = getReportField(data, ["height"], "-");
+  const bmi = getReportField(data, ["bmi"], calculateBMI(weight, height) || "-");
+  const bpSystolic = getReportField(data, ["bpSystolic"], "-");
+  const bpDiastolic = getReportField(data, ["bpDiastolic"], "-");
   const status = getReportField(data, ["status"], "N/A");
   const symptoms = getReportField(data, ["symptoms"]);
+  const diagnosis = getReportField(data, ["diagnosis"], "-");
   const medicines = getReportField(data, ["medicines"]);
   const tests = getReportField(data, ["tests", "exercise"]);
+  const carePlan = getReportField(data, ["carePlan"], "-");
   const risk = getReportField(data, ["risk"], "0");
   const riskLevel = getReportField(data, ["riskLevel"], getRiskLevel(Number(risk) || 0));
   const doctor = getReportField(data, ["doctor"]);
@@ -936,13 +1288,20 @@ function downloadPDF(index) {
 
   let text = "CAREJR AI MEDICAL REPORT\n\n";
   text += `Patient: ${patientName}\n`;
+  text += `Age: ${patientAge}\n`;
   text += `Date: ${visitDate}\n`;
   text += `Follow-up Date: ${followUpDate}\n`;
   text += `Priority: ${priority}\n`;
+  text += `Consultation Type: ${consultationType}\n`;
+  text += `Chief Complaint: ${chiefComplaint}\n`;
+  text += `Known Allergies: ${knownAllergies}\n`;
+  text += `Vitals: Temp ${temperature}F, SpO2 ${spo2}%, Weight ${weight}kg, Height ${height}cm, BMI ${bmi}, BP ${bpSystolic}/${bpDiastolic}\n`;
   text += `Status: ${status}\n`;
   text += `Symptoms: ${symptoms}\n`;
+  text += `Diagnosis: ${diagnosis}\n`;
   text += `Medicines: ${medicines}\n`;
   text += `Tests: ${tests}\n`;
+  text += `Care Plan: ${carePlan}\n`;
   text += `Risk: ${risk}% (${riskLevel})\n`;
   text += `Doctor: ${doctor}\n`;
   text += `Additional Notes: ${notes}`;
@@ -961,12 +1320,16 @@ function downloadPDF(index) {
 function matchesFilters(report) {
   const searchInput = byId("searchReport");
   const highRiskOnly = byId("highRiskOnly");
+  const priorityFilter = byId("priorityFilter");
 
   const search = searchInput ? searchInput.value.trim().toLowerCase() : "";
   const highRisk = highRiskOnly ? highRiskOnly.checked : false;
+  const prioritySelected = priorityFilter ? priorityFilter.value : "all";
 
   const patient = String(getReportField(report, ["patientName", "name"], "")).toLowerCase();
+  const complaint = String(getReportField(report, ["chiefComplaint"], "")).toLowerCase();
   const symptoms = String(getReportField(report, ["symptoms"], "")).toLowerCase();
+  const diagnosis = String(getReportField(report, ["diagnosis"], "")).toLowerCase();
   const doctor = String(getReportField(report, ["doctor"], "")).toLowerCase();
   const tests = String(getReportField(report, ["tests"], "")).toLowerCase();
   const priority = String(getReportField(report, ["priority"], "")).toLowerCase();
@@ -977,8 +1340,12 @@ function matchesFilters(report) {
     return false;
   }
 
+  if (prioritySelected !== "all" && getReportField(report, ["priority"], "") !== prioritySelected) {
+    return false;
+  }
+
   if (search) {
-    const haystack = `${patient} ${symptoms} ${doctor} ${tests} ${priority} ${notes}`;
+    const haystack = `${patient} ${complaint} ${symptoms} ${diagnosis} ${doctor} ${tests} ${priority} ${notes}`;
     if (!haystack.includes(search)) {
       return false;
     }
@@ -1014,6 +1381,11 @@ function sortReportEntries(entries) {
   const sortSelect = byId("sortReports");
   const sortMode = sortSelect ? sortSelect.value : "newest";
   const list = entries.slice();
+  const priorityWeight = {
+    Emergency: 3,
+    Urgent: 2,
+    Routine: 1
+  };
 
   if (sortMode === "oldest") {
     list.sort((a, b) => parseReportDate(a.report) - parseReportDate(b.report));
@@ -1021,6 +1393,12 @@ function sortReportEntries(entries) {
     list.sort((a, b) => parseReportRisk(b.report) - parseReportRisk(a.report));
   } else if (sortMode === "risk-low") {
     list.sort((a, b) => parseReportRisk(a.report) - parseReportRisk(b.report));
+  } else if (sortMode === "priority") {
+    list.sort((a, b) => {
+      const aPriority = getReportField(a.report, ["priority"], "Routine");
+      const bPriority = getReportField(b.report, ["priority"], "Routine");
+      return (priorityWeight[bPriority] || 0) - (priorityWeight[aPriority] || 0);
+    });
   } else {
     list.sort((a, b) => parseReportDate(b.report) - parseReportDate(a.report));
   }
@@ -1032,6 +1410,14 @@ function updatePreviousSummary(filteredEntries, totalStored) {
   const visible = filteredEntries.length;
   const visibleRisks = filteredEntries.map((entry) => parseReportRisk(entry.report));
   const critical = visibleRisks.filter((risk) => risk >= 80).length;
+  const emergencyPriority = filteredEntries.filter(
+    (entry) => getReportField(entry.report, ["priority"], "Routine") === "Emergency"
+  ).length;
+  const today = new Date().toISOString().split("T")[0];
+  const followUpDue = filteredEntries.filter((entry) => {
+    const followUp = getReportField(entry.report, ["followUpDate"], "");
+    return followUp && followUp <= today;
+  }).length;
   const avgRisk = visible > 0
     ? Math.round(visibleRisks.reduce((sum, risk) => sum + risk, 0) / visible)
     : 0;
@@ -1039,6 +1425,8 @@ function updatePreviousSummary(filteredEntries, totalStored) {
   const summaryVisible = byId("summaryVisible");
   const summaryStored = byId("summaryStored");
   const summaryCritical = byId("summaryCritical");
+  const summaryEmergency = byId("summaryEmergency");
+  const summaryFollowUpDue = byId("summaryFollowUpDue");
   const summaryAverage = byId("summaryAverage");
 
   if (summaryVisible) {
@@ -1049,6 +1437,12 @@ function updatePreviousSummary(filteredEntries, totalStored) {
   }
   if (summaryCritical) {
     summaryCritical.textContent = String(critical);
+  }
+  if (summaryEmergency) {
+    summaryEmergency.textContent = String(emergencyPriority);
+  }
+  if (summaryFollowUpDue) {
+    summaryFollowUpDue.textContent = String(followUpDue);
   }
   if (summaryAverage) {
     summaryAverage.textContent = `${avgRisk}%`;
@@ -1086,13 +1480,26 @@ function loadReports() {
 
   sortedEntries.forEach(({ report, index }) => {
     const patient = getReportField(report, ["patientName", "name"]);
+    const patientAge = getReportField(report, ["patientAge"], "-");
     const date = getReportField(report, ["visitDate", "date"]);
     const followUpDate = getReportField(report, ["followUpDate"], "-");
     const priority = getReportField(report, ["priority"], "Routine");
+    const consultationType = getReportField(report, ["consultationType"], "In-person");
+    const complaint = getReportField(report, ["chiefComplaint"], "-");
+    const allergies = getReportField(report, ["knownAllergies"], "-");
+    const temperature = getReportField(report, ["temperature"], "-");
+    const spo2 = getReportField(report, ["spo2"], "-");
+    const weight = getReportField(report, ["weight"], "-");
+    const height = getReportField(report, ["height"], "-");
+    const bmi = getReportField(report, ["bmi"], calculateBMI(weight, height) || "-");
+    const bpSystolic = getReportField(report, ["bpSystolic"], "-");
+    const bpDiastolic = getReportField(report, ["bpDiastolic"], "-");
     const status = getReportField(report, ["status"]);
     const symptoms = getReportField(report, ["symptoms"]);
+    const diagnosis = getReportField(report, ["diagnosis"], "-");
     const medicines = getReportField(report, ["medicines"]);
     const tests = getReportField(report, ["tests", "exercise"]);
+    const carePlan = getReportField(report, ["carePlan"], "-");
     const risk = parseReportRisk(report);
     const riskLevel = getReportField(report, ["riskLevel"], getRiskLevel(risk));
     const doctor = getReportField(report, ["doctor"]);
@@ -1104,13 +1511,20 @@ function loadReports() {
 
     div.innerHTML = `
       <h3>${safeText(patient)}</h3>
+      <p><strong>Age:</strong> ${safeText(patientAge)}</p>
       <p><strong>Date:</strong> ${safeText(date)}</p>
       <p><strong>Follow-up:</strong> ${safeText(followUpDate)}</p>
       <p><strong>Priority:</strong> ${safeText(priority)}</p>
+      <p><strong>Consultation:</strong> ${safeText(consultationType)}</p>
+      <p><strong>Complaint:</strong> ${safeText(complaint)}</p>
+      <p><strong>Allergies:</strong> ${safeText(allergies)}</p>
+      <p><strong>Vitals:</strong> Temp ${safeText(temperature)}F, SpO2 ${safeText(spo2)}%, Weight ${safeText(weight)}kg, Height ${safeText(height)}cm, BMI ${safeText(bmi)}, BP ${safeText(bpSystolic)}/${safeText(bpDiastolic)}</p>
       <p><strong>Status:</strong> ${safeText(status)}</p>
       <p><strong>Symptoms:</strong> ${safeText(symptoms)}</p>
+      <p><strong>Diagnosis:</strong> ${safeText(diagnosis)}</p>
       <p><strong>Medicines:</strong> ${safeText(medicines)}</p>
       <p><strong>Tests:</strong> ${safeText(tests)}</p>
+      <p><strong>Care Plan:</strong> ${safeText(carePlan)}</p>
       <p><strong>Risk:</strong> <span class="risk-badge ${riskBadgeClass(risk)}">${safeText(risk)}% (${safeText(riskLevel)})</span></p>
       <p><strong>Doctor:</strong> ${safeText(doctor)}</p>
       <p><strong>Notes:</strong> ${safeText(notes)}</p>
@@ -1203,6 +1617,17 @@ function updateDashboardStats() {
   const average = total > 0
     ? Math.round(reports.reduce((sum, report) => sum + parseReportRisk(report), 0) / total)
     : 0;
+  const today = new Date().toISOString().split("T")[0];
+  const routineCount = reports.filter((report) => getReportField(report, ["priority"], "Routine") === "Routine").length;
+  const urgentCount = reports.filter((report) => getReportField(report, ["priority"], "Routine") === "Urgent").length;
+  const emergencyCount = reports.filter((report) => getReportField(report, ["priority"], "Routine") === "Emergency").length;
+  const reportsToday = reports.filter(
+    (report) => getReportField(report, ["visitDate", "date"], "") === today
+  ).length;
+  const followUpDue = reports.filter((report) => {
+    const followUp = getReportField(report, ["followUpDate"], "");
+    return followUp && followUp <= today;
+  }).length;
 
   let lastVisit = "-";
   if (reports.length > 0) {
@@ -1222,6 +1647,11 @@ function updateDashboardStats() {
   const statModerate = byId("statModerate");
   const statLow = byId("statLow");
   const statAverage = byId("statAverage");
+  const statRoutine = byId("statRoutine");
+  const statUrgent = byId("statUrgent");
+  const statEmergency = byId("statEmergency");
+  const statToday = byId("statToday");
+  const statFollowUpDue = byId("statFollowUpDue");
   const statLastVisit = byId("statLastVisit");
 
   if (statTotal) {
@@ -1246,6 +1676,26 @@ function updateDashboardStats() {
 
   if (statAverage) {
     statAverage.innerText = `${average}%`;
+  }
+
+  if (statRoutine) {
+    statRoutine.innerText = String(routineCount);
+  }
+
+  if (statUrgent) {
+    statUrgent.innerText = String(urgentCount);
+  }
+
+  if (statEmergency) {
+    statEmergency.innerText = String(emergencyCount);
+  }
+
+  if (statToday) {
+    statToday.innerText = String(reportsToday);
+  }
+
+  if (statFollowUpDue) {
+    statFollowUpDue.innerText = String(followUpDue);
   }
 
   if (statLastVisit) {

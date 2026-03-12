@@ -1,102 +1,124 @@
-# CareJR AI Screening - UI and Feature Improvements (v3)
+# CareJR AI Screening - UI and Feature Improvements (v5)
 
-## Scope
-All UI pages were improved:
+## Updated Files
 - `login.html`
 - `details.html`
 - `dashboard.html`
 - `newdata.html`
 - `previous.html`
-- `styles.css`
 - `script.js`
+- `styles.css`
 
-## UI Improvements Across All Files
+## 1. Login UI Improvements
+### Added new field
+- **Clinic / Facility Code** (`clinicCode`) in login.
 
-### Login Page
-- Added a cleaner card with `brand-chip` header.
-- Added OTP panel styling (`soft-panel`).
-- Added resend button with visible countdown state.
+### Logic updates
+- Clinic code is sanitized and stored in localStorage.
+- Clinic code is shown later on dashboard profile summary.
 
-### Details Page
-- Improved heading/subtext clarity.
-- Kept form validation UX and polished profile setup presentation.
+## 2. Profile Page Improvements (`details.html`)
+### Added new fields
+- **Gender** (`gender`)
+- **City** (`city`)
+- **Blood Group** (`bloodGroup`)
+- **Emergency Contact** (`emergencyContact`)
 
-### Dashboard Page
-- Added **additional counters**:
-  - Total Reports
-  - High Risk (>=70%)
-  - Critical (>=80%)
-  - Moderate (30-59%)
-  - Low (<30%)
-  - Average Risk
-  - Most Recent Visit
-- Added risk distribution meter chart (Low/Moderate/High/Critical bars).
-- Improved nav/sidebar visuals and interactions.
+### Logic updates
+- Added validation for all new required fields.
+- Emergency contact is validated as a 10-digit number.
+- Emergency contact cannot match login phone number.
+- All new profile fields are persisted and restored.
 
-### New Data Page
-- Added new fields:
-  - `Follow-up Date`
-  - `Care Priority` (`Routine`, `Urgent`, `Emergency`)
-- Added split layout for visit/follow-up dates.
-- Included new fields in generated preview and report export.
+## 3. Dashboard UI Enhancements (`dashboard.html`)
+### Expanded profile section
+- Added display values for:
+  - Gender
+  - Blood Group
+  - City
+  - Emergency Contact
+  - Clinic Code
 
-### Previous Reports Page
-- Added report mini-summary cards:
-  - Visible count
-  - Stored count
-  - Critical count
-  - Average risk
-- Added report sort control:
-  - Newest
-  - Oldest
-  - Highest Risk
-  - Lowest Risk
-- Enhanced filtering/search flow with live summary refresh.
+### Added additional counters
+- Routine cases
+- Urgent cases
+- Emergency cases
+- Reports Today
+- Follow-up Due
+- Existing risk counters retained and updated.
 
-## JavaScript Logic Improvements
+### Metric logic
+- Dashboard counters now include risk + priority distribution.
 
-### Authentication UX
-- Added OTP resend cooldown timer with disabled button state.
-- Added button label countdown text updates.
+## 4. New Data Form Enhancements (`newdata.html`)
+### Added many new fields
+- Patient Age (auto-filled from DOB)
+- Consultation Type
+- Chief Complaint
+- Known Allergies
+- Vitals:
+  - Temperature
+  - SpO2
+  - Weight
+  - Height
+  - BMI (auto-calculated)
+  - BP Systolic
+  - BP Diastolic
+- Provisional Diagnosis
+- Care Plan / Advice
 
-### Sidebar UX
-- Added click-outside and `Escape` key close behavior.
-- Added auto-close when sidebar link is selected.
+### Validation and behavior updates
+- Follow-up date must be on/after visit date.
+- BP values require both systolic and diastolic together.
+- SpO2 range validation (50-100).
+- Auto-filled patient name and age from stored profile.
 
-### New Data Validation and Persistence
-- Added `followUpDate` support in:
+### Report updates
+- New fields included in:
   - Draft save/restore
-  - Report generation
-  - Report download
-  - Report list rendering
-- Added `priority` support in all report flows.
-- Added follow-up date validation (`followUpDate >= visitDate`).
+  - Report preview
+  - Stored report data
+  - Downloaded report text
+  - Previous report cards
 
-### Report Listing Enhancements
-- Added sorting logic for report entries.
-- Added summary stat calculation for visible/stored/critical/average risk.
-- Added safer dashboard stat and meter updates.
+## 5. Previous Reports Enhancements (`previous.html`)
+### Added new controls
+- **Priority filter** (`priorityFilter`): All / Routine / Urgent / Emergency
+- Additional sort option: **Sort by Priority**
 
-### Dashboard Metrics
-- Added computed metrics for critical/moderate/low/average.
-- Added meter percentage rendering for distribution bars.
+### Added new summary counters
+- Emergency priority count (`summaryEmergency`)
+- Follow-up due count (`summaryFollowUpDue`)
+- Existing visible/stored/critical/average counters retained.
 
-## Styling Enhancements (`styles.css`)
-- Added new theme tokens (teal/amber/slate accents).
-- Added reusable UI components:
-  - `.brand-chip`
-  - `.soft-panel`
-  - `.split-grid`
-  - `.mini-stats` / `.mini-stat`
-  - `.risk-breakdown` / `.meter-row` / `.meter`
-- Added accent variants for stat cards.
-- Added disabled button state styling.
-- Improved responsive behavior for new controls and grids.
+### Listing improvements
+- Each report card now shows complaint, allergies, vitals, diagnosis, and care plan.
 
-## Additional Counters/Controls Added
-- Dashboard multi-risk counters.
-- Dashboard risk distribution meter chart.
-- Previous page mini-summary counters.
-- Previous page sort control.
-- OTP resend countdown control.
-- Follow-up date and priority controls in report entry.
+## 6. JavaScript Architecture Updates (`script.js`)
+### New storage keys
+- `CLINIC_CODE`
+- `GENDER`
+- `BLOOD_GROUP`
+- `CITY`
+- `EMERGENCY_CONTACT`
+
+### Added/updated logic areas
+- Input normalization for clinic code and emergency contact.
+- Age calculation utility from DOB.
+- Profile hydration extended for all new fields.
+- AI analysis source now includes chief complaint and allergy text.
+- Filter/search/sort logic expanded for new fields and priority mode.
+- Dashboard stats expanded with priority counts.
+
+## 7. Styling Improvements (`styles.css`)
+### Added layout support for new UI sections
+- `.profile-grid`
+- `.tri-grid`
+- readonly input style improvements
+
+### Responsive updates
+- New grid sections collapse correctly on smaller screens.
+- Dashboard profile grid and multi-field forms remain usable on mobile.
+
+## Result
+The application now has richer clinical data capture, improved profile completeness, expanded dashboard intelligence, and stronger report filtering/sorting with additional controls and counters.

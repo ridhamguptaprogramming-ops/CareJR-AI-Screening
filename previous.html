@@ -30,6 +30,14 @@
       <p id="summaryCritical">0</p>
     </article>
     <article class="mini-stat">
+      <h3>Emergency Priority</h3>
+      <p id="summaryEmergency">0</p>
+    </article>
+    <article class="mini-stat">
+      <h3>Follow-up Due</h3>
+      <p id="summaryFollowUpDue">0</p>
+    </article>
+    <article class="mini-stat">
       <h3>Average Risk</h3>
       <p id="summaryAverage">0%</p>
     </article>
@@ -44,11 +52,19 @@
       oninput="filterReports()"
     >
 
+    <select id="priorityFilter" aria-label="Priority filter" onchange="filterReports()">
+      <option value="all">Priority: All</option>
+      <option value="Routine">Routine</option>
+      <option value="Urgent">Urgent</option>
+      <option value="Emergency">Emergency</option>
+    </select>
+
     <select id="sortReports" aria-label="Sort reports" onchange="filterReports()">
       <option value="newest">Sort: Newest</option>
       <option value="oldest">Sort: Oldest</option>
       <option value="risk-high">Sort: Highest Risk</option>
       <option value="risk-low">Sort: Lowest Risk</option>
+      <option value="priority">Sort: Priority</option>
     </select>
 
     <label class="inline-check" for="highRiskOnly">

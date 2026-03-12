@@ -25,9 +25,16 @@
   <main class="content">
     <section class="profile-card">
       <h2>Welcome, <span id="username">User</span></h2>
-      <p><strong>DOB:</strong> <span id="dob">-</span></p>
-      <p><strong>State:</strong> <span id="state">-</span></p>
-      <p><strong>Phone:</strong> <span id="phone">-</span></p>
+      <div class="profile-grid">
+        <p><strong>DOB:</strong> <span id="dob">-</span></p>
+        <p><strong>Gender:</strong> <span id="gender">-</span></p>
+        <p><strong>Blood Group:</strong> <span id="bloodGroup">-</span></p>
+        <p><strong>State:</strong> <span id="state">-</span></p>
+        <p><strong>City:</strong> <span id="city">-</span></p>
+        <p><strong>Phone:</strong> <span id="phone">-</span></p>
+        <p><strong>Emergency:</strong> <span id="emergencyContact">-</span></p>
+        <p><strong>Clinic:</strong> <span id="clinicCode">-</span></p>
+      </div>
     </section>
 
     <section class="stats-grid" aria-label="Report statistics">
@@ -36,11 +43,11 @@
         <p id="statTotal">0</p>
       </article>
       <article class="stat-card accent-high">
-        <h3>High Risk (>=70%)</h3>
+        <h3>High Risk (&gt;=70%)</h3>
         <p id="statHighRisk">0</p>
       </article>
       <article class="stat-card accent-critical">
-        <h3>Critical (>=80%)</h3>
+        <h3>Critical (&gt;=80%)</h3>
         <p id="statCritical">0</p>
       </article>
       <article class="stat-card accent-moderate">
@@ -54,6 +61,26 @@
       <article class="stat-card accent-average">
         <h3>Average Risk</h3>
         <p id="statAverage">0%</p>
+      </article>
+      <article class="stat-card">
+        <h3>Routine Cases</h3>
+        <p id="statRoutine">0</p>
+      </article>
+      <article class="stat-card">
+        <h3>Urgent Cases</h3>
+        <p id="statUrgent">0</p>
+      </article>
+      <article class="stat-card">
+        <h3>Emergency Cases</h3>
+        <p id="statEmergency">0</p>
+      </article>
+      <article class="stat-card">
+        <h3>Reports Today</h3>
+        <p id="statToday">0</p>
+      </article>
+      <article class="stat-card">
+        <h3>Follow-up Due</h3>
+        <p id="statFollowUpDue">0</p>
       </article>
       <article class="stat-card">
         <h3>Most Recent Visit</h3>

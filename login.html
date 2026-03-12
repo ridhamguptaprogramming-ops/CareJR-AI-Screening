@@ -13,6 +13,16 @@
     <p class="subtext">Enter your registered phone number to continue with the clinical workflow.</p>
 
     <form id="loginForm" novalidate>
+      <label for="clinicCode">Clinic / Facility Code</label>
+      <input
+        type="text"
+        id="clinicCode"
+        placeholder="e.g. CRJ-NORTH-01"
+        maxlength="20"
+        aria-label="Clinic Code"
+        autocomplete="organization"
+      >
+
       <label for="phone">Phone Number</label>
       <input
         type="tel"
