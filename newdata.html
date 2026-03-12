@@ -114,6 +114,22 @@
         aria-label="Known Allergies"
       >
 
+      <div class="split-grid">
+        <div>
+          <label for="painScore">Pain Score (0-10)</label>
+          <input id="painScore" type="number" min="0" max="10" step="1" placeholder="4" aria-label="Pain Score">
+        </div>
+        <div>
+          <label for="oxygenSupport">Oxygen Support</label>
+          <select id="oxygenSupport" aria-label="Oxygen Support">
+            <option value="Room Air">Room Air</option>
+            <option value="Oxygen">Oxygen</option>
+            <option value="NIV">NIV</option>
+            <option value="Ventilator">Ventilator</option>
+          </select>
+        </div>
+      </div>
+
       <h3>Vitals</h3>
       <div class="split-grid tri-grid">
         <div>
