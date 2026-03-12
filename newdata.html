@@ -17,34 +17,74 @@
     </div>
 
     <div class="right">
-      <h2>Patient Entry</h2>
+      <h2>Patient Medical Entry Form</h2>
 
-      <input id="patientName" placeholder="Patient Name">
-      <input type="date" id="visitDate">
+      <input 
+        id="patientName" 
+        type="text"
+        placeholder="Patient Name" 
+        aria-label="Patient Name"
+        required
+      >
+      <input 
+        type="date" 
+        id="visitDate"
+        aria-label="Visit Date"
+        required
+      >
 
-      <textarea id="conversation" placeholder="Doctor Patient Conversation"></textarea>
+      <textarea 
+        id="conversation" 
+        placeholder="Doctor-Patient Conversation (AI will analyze for symptoms)"
+        aria-label="Medical Conversation"
+      ></textarea>
 
-      <button class="voice" onclick="startConversation()">Start Conversation</button>
-      <button class="stop" onclick="stopConversation()">Stop</button>
-
-      <textarea id="symptoms" placeholder="Detected Symptoms"></textarea>
-      <textarea id="medicines" placeholder="Suggested Medicines"></textarea>
-      <textarea id="tests" placeholder="Suggested Tests"></textarea>
-
-      <input id="doctor" placeholder="Doctor Signature">
-
-      <h3>Risk Score: <span id="risk">0</span>%</h3>
-
-      <button onclick="generateReport()">Generate Report</button>
-      <button onclick="sendPharmacy()">Move to Pharmacy</button>
-      <button onclick="sendLab()">Move to Laboratory</button>
-
-      <div id="after" style="display:none">
-        <button onclick="downloadPDF()">Download PDF</button>
-        <button onclick="storeReport()">Approve & Store</button>
+      <div class="button-group">
+        <button type="button" class="voice" onclick="startConversation()" aria-label="Start Recording Conversation">🎤 Start Conversation</button>
+        <button type="button" class="stop" onclick="stopConversation()" aria-label="Stop Recording">⏹ Stop</button>
       </div>
 
-      <div id="preview" class="preview"></div>
+      <textarea 
+        id="symptoms" 
+        placeholder="AI-Detected Symptoms" 
+        readonly
+        aria-label="Detected Symptoms"
+      ></textarea>
+      <textarea 
+        id="medicines" 
+        placeholder="Suggested Medicines" 
+        aria-label="Suggested Medicines"
+      ></textarea>
+      <textarea 
+        id="tests" 
+        placeholder="Suggested Tests" 
+        aria-label="Suggested Tests"
+      ></textarea>
+
+      <input 
+        id="doctor" 
+        type="text"
+        placeholder="Doctor Signature/Name" 
+        aria-label="Doctor Signature"
+        required
+      >
+
+      <h3>Risk Assessment: <span id="risk" role="status">0</span>%</h3>
+
+      <div class="button-group">
+        <button type="button" class="btn-primary" onclick="generateReport()">📋 Generate Report</button>
+        <button type="button" class="btn-secondary" onclick="runAI()">🤖 Re-analyze with AI</button>
+      </div>
+
+      <button type="button" class="btn-pharmacy" onclick="sendPharmacy()">💊 Send to Pharmacy</button>
+      <button type="button" class="btn-lab" onclick="sendLab()">🧪 Send to Lab</button>
+
+      <div id="after" style="display:none" role="region" aria-live="polite">
+        <button type="button" class="btn-download" onclick="downloadPDF()">📥 Download Report</button>
+        <button type="button" class="btn-success" onclick="storeReport()">✅ Approve & Store</button>
+      </div>
+
+      <div id="preview" class="preview" role="region" aria-live="polite"></div>
     </div>
   </div>
 
