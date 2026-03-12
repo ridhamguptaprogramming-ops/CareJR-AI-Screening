@@ -3,30 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>User Details</title>
+  <title>Profile Details</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="details-page">
-  <div class="container">
-    <h2>Complete Your Profile</h2>
+  <main class="container" aria-labelledby="detailsTitle">
+    <h1 id="detailsTitle">Complete Your Profile</h1>
+    <p class="subtext">Add your core details to continue to the clinical dashboard.</p>
 
-    <form onsubmit="return false;">
-      <input 
-        type="text" 
-        id="name" 
-        placeholder="Full Name" 
+    <form id="detailsForm" novalidate>
+      <label for="name">Full Name</label>
+      <input
+        type="text"
+        id="name"
+        placeholder="Full Name"
         aria-label="Full Name"
-        pattern="^[a-zA-Z\s]+$"
-        title="Name should contain only letters and spaces"
+        pattern="^[a-zA-Z\s.'-]+$"
+        title="Name should contain only letters, spaces, apostrophe, or hyphen"
+        autocomplete="name"
         required
       >
-      <input 
-        type="date" 
+
+      <label for="dob">Date of Birth</label>
+      <input
+        type="date"
         id="dob"
         aria-label="Date of Birth"
         required
       >
 
+      <label for="state">State</label>
       <select id="state" aria-label="State" required>
         <option value="">Select State</option>
         <option value="Rajasthan">Rajasthan</option>
@@ -35,8 +41,9 @@
         <option value="Haryana">Haryana</option>
       </select>
 
-      <input 
-        type="tel" 
+      <label for="phone">Phone Number</label>
+      <input
+        type="tel"
         id="phone"
         placeholder="Phone Number"
         maxlength="10"
@@ -44,10 +51,14 @@
         aria-label="Phone Number"
         readonly
       >
+      <p class="helper-text">Phone number is auto-filled from login.</p>
 
-      <button type="button" onclick="submitData()" class="btn-primary">Submit & Continue</button>
+      <button type="submit" class="btn-primary">Save & Continue</button>
+      <a href="login.html" class="text-link">Back to Login</a>
+
+      <p id="profileMessage" class="inline-message" aria-live="polite"></p>
     </form>
-  </div>
+  </main>
 
   <script src="script.js"></script>
 </body>

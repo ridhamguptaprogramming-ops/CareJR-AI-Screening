@@ -7,7 +7,30 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="previous-page">
-  <h2>Previous Medical Reports</h2>
+  <header class="page-header">
+    <h1>Previous Medical Reports</h1>
+    <div class="button-group">
+      <a href="dashboard.html" class="link-button btn-secondary">Back to Dashboard</a>
+      <button type="button" class="btn-primary" onclick="exportAllReports()">Export All</button>
+      <button type="button" class="delete-btn" onclick="clearReports()">Clear All</button>
+    </div>
+  </header>
+
+  <section class="controls-row" aria-label="Report filters">
+    <input
+      id="searchReport"
+      type="search"
+      placeholder="Search by patient, symptom, doctor"
+      aria-label="Search reports"
+      oninput="filterReports()"
+    >
+    <label class="inline-check" for="highRiskOnly">
+      <input id="highRiskOnly" type="checkbox" onchange="filterReports()">
+      High risk only (>= 70%)
+    </label>
+  </section>
+
+  <p id="reportsMessage" class="inline-message" aria-live="polite"></p>
   <div id="reportContainer"></div>
 
   <script src="script.js"></script>

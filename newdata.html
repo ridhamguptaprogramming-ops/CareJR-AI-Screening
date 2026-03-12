@@ -8,84 +8,110 @@
 </head>
 <body class="newdata-page">
   <div class="container">
-    <div class="left">
+    <aside class="left">
       <h2>CareJR AI Monitoring</h2>
-      <video id="video" autoplay muted></video>
+      <p class="subtext">Live simulation while consultation notes are captured.</p>
+      <video id="video" autoplay muted playsinline></video>
 
       <div class="status">Breathing: <span id="breathing">Idle</span></div>
       <div class="status">Pulse: <span id="heart">Idle</span></div>
-    </div>
 
-    <div class="right">
-      <h2>Patient Medical Entry Form</h2>
+      <a href="dashboard.html" class="text-link light-link">Back to Dashboard</a>
+    </aside>
 
-      <input 
-        id="patientName" 
+    <main class="right">
+      <h1>Patient Medical Entry Form</h1>
+
+      <label for="patientName">Patient Name</label>
+      <input
+        id="patientName"
         type="text"
-        placeholder="Patient Name" 
+        placeholder="Patient Name"
         aria-label="Patient Name"
+        autocomplete="name"
         required
       >
-      <input 
-        type="date" 
+
+      <label for="visitDate">Visit Date</label>
+      <input
+        type="date"
         id="visitDate"
         aria-label="Visit Date"
         required
       >
 
-      <textarea 
-        id="conversation" 
+      <label for="conversation">Doctor-Patient Conversation</label>
+      <textarea
+        id="conversation"
         placeholder="Doctor-Patient Conversation (AI will analyze for symptoms)"
         aria-label="Medical Conversation"
       ></textarea>
 
       <div class="button-group">
-        <button type="button" class="voice" onclick="startConversation()" aria-label="Start Recording Conversation">🎤 Start Conversation</button>
-        <button type="button" class="stop" onclick="stopConversation()" aria-label="Stop Recording">⏹ Stop</button>
+        <button type="button" class="voice" onclick="startConversation()">Start Conversation</button>
+        <button type="button" class="stop" onclick="stopConversation()">Stop</button>
       </div>
 
-      <textarea 
-        id="symptoms" 
-        placeholder="AI-Detected Symptoms" 
+      <label for="symptoms">AI Detected Symptoms</label>
+      <textarea
+        id="symptoms"
+        placeholder="AI-Detected Symptoms"
         readonly
         aria-label="Detected Symptoms"
       ></textarea>
-      <textarea 
-        id="medicines" 
-        placeholder="Suggested Medicines" 
+
+      <label for="medicines">Suggested Medicines</label>
+      <textarea
+        id="medicines"
+        placeholder="Suggested Medicines"
         aria-label="Suggested Medicines"
       ></textarea>
-      <textarea 
-        id="tests" 
-        placeholder="Suggested Tests" 
+
+      <label for="tests">Suggested Tests</label>
+      <textarea
+        id="tests"
+        placeholder="Suggested Tests"
         aria-label="Suggested Tests"
       ></textarea>
 
-      <input 
-        id="doctor" 
+      <label for="clinicalNotes">Additional Care Notes</label>
+      <textarea
+        id="clinicalNotes"
+        placeholder="Additional care instructions or follow-up notes"
+        aria-label="Additional Care Notes"
+      ></textarea>
+
+      <label for="doctor">Doctor Name/Signature</label>
+      <input
+        id="doctor"
         type="text"
-        placeholder="Doctor Signature/Name" 
+        placeholder="Doctor Signature/Name"
         aria-label="Doctor Signature"
         required
       >
 
-      <h3>Risk Assessment: <span id="risk" role="status">0</span>%</h3>
+      <h3>Risk Assessment: <span id="risk" role="status">0</span>% (<span id="riskLevel">Low</span>)</h3>
 
       <div class="button-group">
-        <button type="button" class="btn-primary" onclick="generateReport()">📋 Generate Report</button>
-        <button type="button" class="btn-secondary" onclick="runAI()">🤖 Re-analyze with AI</button>
+        <button type="button" class="btn-primary" onclick="generateReport()">Generate Report</button>
+        <button type="button" class="btn-secondary" onclick="runAI()">Re-analyze with AI</button>
+        <button type="button" class="btn-secondary" onclick="saveDraft()">Save Draft</button>
+        <button type="button" class="btn-secondary" onclick="resetNewDataForm()">Reset Form</button>
       </div>
 
-      <button type="button" class="btn-pharmacy" onclick="sendPharmacy()">💊 Send to Pharmacy</button>
-      <button type="button" class="btn-lab" onclick="sendLab()">🧪 Send to Lab</button>
-
-      <div id="after" style="display:none" role="region" aria-live="polite">
-        <button type="button" class="btn-download" onclick="downloadPDF()">📥 Download Report</button>
-        <button type="button" class="btn-success" onclick="storeReport()">✅ Approve & Store</button>
+      <div class="button-group">
+        <button type="button" class="btn-pharmacy" onclick="sendPharmacy()">Send to Pharmacy</button>
+        <button type="button" class="btn-lab" onclick="sendLab()">Send to Lab</button>
       </div>
 
+      <div id="after" hidden role="region" aria-live="polite">
+        <button type="button" class="btn-download" onclick="downloadPDF()">Download Report</button>
+        <button type="button" class="btn-success" onclick="storeReport()">Approve & Store</button>
+      </div>
+
+      <p id="newDataMessage" class="inline-message" aria-live="polite"></p>
       <div id="preview" class="preview" role="region" aria-live="polite"></div>
-    </div>
+    </main>
   </div>
 
   <script src="script.js"></script>
