@@ -1,6 +1,8 @@
-# CareJR AI Screening - UI and Feature Improvements (v6)
+# CareJR AI Screening - UI and Feature Improvements (v7)
 
 ## Updated Files
+- `app.py`
+- `requirements.txt`
 - `login.html`
 - `details.html`
 - `dashboard.html`
@@ -16,6 +18,7 @@
 ### Logic updates
 - Clinic code is sanitized and stored in localStorage.
 - Clinic code is shown later on dashboard profile summary.
+- OTP send/verify now works through Python backend APIs.
 
 ## 2. Profile Page Improvements (`details.html`)
 ### Added new fields
@@ -117,8 +120,30 @@
 - AI triage engine added using risk + vitals.
 - Filter/search/sort logic expanded for new fields and priority mode.
 - Dashboard stats expanded with priority + triage counts.
+- Local data now syncs with Python backend APIs.
 
-## 7. Styling Improvements (`styles.css`)
+## 7. Python Backend (`app.py`)
+### Added backend APIs
+- `POST /api/send-otp`
+- `POST /api/verify-otp`
+- `POST /api/logout`
+- `GET /api/profile`
+- `POST /api/profile`
+- `GET /api/reports`
+- `POST /api/reports`
+- `DELETE /api/reports`
+- `DELETE /api/reports/<id>`
+
+### Storage
+- SQLite database (`carejr.db`) with tables for users, OTP, sessions, and reports.
+- Session-based authentication with bearer token.
+
+### Run
+1. `python3 -m pip install -r requirements.txt`
+2. `python3 app.py`
+3. Open `http://localhost:5000`
+
+## 8. Styling Improvements (`styles.css`)
 ### Added layout support for new UI sections
 - `.profile-grid`
 - `.tri-grid`

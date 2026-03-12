@@ -1,5 +1,6 @@
 const STORAGE_KEYS = {
   PHONE: "phone",
+  SESSION_TOKEN: "sessionToken",
   GENERATED_OTP: "generatedOtp",
   OTP_SENT_AT: "otpSentAt",
   CLINIC_CODE: "clinicCode",
@@ -56,6 +57,76 @@ function getStoredJSON(key, fallback) {
 
 function setStoredJSON(key, data) {
   localStorage.setItem(key, JSON.stringify(data));
+}
+
+function getSessionToken() {
+  return localStorage.getItem(STORAGE_KEYS.SESSION_TOKEN) || "";
+}
+
+async function apiRequest(path, options = {}) {
+  const {
+    method = "GET",
+    body,
+    headers = {},
+    skipAuth = false
+  } = options;
+
+  const requestHeaders = { ...headers };
+  if (body !== undefined && !requestHeaders["Content-Type"]) {
+    requestHeaders["Content-Type"] = "application/json";
+  }
+
+  if (!skipAuth) {
+    const token = getSessionToken();
+    if (token) {
+      requestHeaders.Authorization = `Bearer ${token}`;
+    }
+  }
+
+  try {
+    const response = await fetch(`/api${path}`, {
+      method,
+      headers: requestHeaders,
+      body
+    });
+
+    const text = await response.text();
+    let data = null;
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch (error) {
+        data = { message: text };
+      }
+    }
+
+    if (!response.ok) {
+      if (!skipAuth && response.status === 401) {
+        localStorage.removeItem(STORAGE_KEYS.SESSION_TOKEN);
+        if (!isLoginPage()) {
+          window.location.href = "login.html";
+        }
+      }
+      return {
+        ok: false,
+        status: response.status,
+        data,
+        message: (data && (data.error || data.message)) || `Request failed (${response.status})`
+      };
+    }
+
+    return {
+      ok: true,
+      status: response.status,
+      data: data || {}
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      message: "Unable to reach Python backend. Start server and retry."
+    };
+  }
 }
 
 function showMessage(elementId, message, type = "success") {
@@ -527,14 +598,62 @@ function ensureSession() {
     return;
   }
 
-  const phone = localStorage.getItem(STORAGE_KEYS.PHONE);
-  if (!phone) {
+  const token = getSessionToken();
+  if (!token) {
     window.location.href = "login.html";
   }
 }
 
-function initPage() {
+async function syncProfileFromServer() {
+  const response = await apiRequest("/profile");
+  if (!response.ok || !response.data || !response.data.profile) {
+    return;
+  }
+
+  const profile = response.data.profile;
+  const keyMap = [
+    [STORAGE_KEYS.PHONE, "phone"],
+    [STORAGE_KEYS.CLINIC_CODE, "clinicCode"],
+    [STORAGE_KEYS.NAME, "name"],
+    [STORAGE_KEYS.DOB, "dob"],
+    [STORAGE_KEYS.GENDER, "gender"],
+    [STORAGE_KEYS.BLOOD_GROUP, "bloodGroup"],
+    [STORAGE_KEYS.STATE, "state"],
+    [STORAGE_KEYS.CITY, "city"],
+    [STORAGE_KEYS.PINCODE, "pincode"],
+    [STORAGE_KEYS.ADDRESS, "address"],
+    [STORAGE_KEYS.EMERGENCY_CONTACT, "emergencyContact"]
+  ];
+
+  keyMap.forEach(([storageKey, profileKey]) => {
+    const value = profile[profileKey];
+    if (value !== undefined && value !== null) {
+      localStorage.setItem(storageKey, String(value));
+    }
+  });
+}
+
+async function syncReportsFromServer() {
+  const response = await apiRequest("/reports");
+  if (!response.ok || !response.data || !Array.isArray(response.data.reports)) {
+    return;
+  }
+
+  setStoredJSON(STORAGE_KEYS.REPORTS, response.data.reports);
+}
+
+async function syncFromServer() {
+  if (!getSessionToken()) {
+    return;
+  }
+
+  await syncProfileFromServer();
+  await syncReportsFromServer();
+}
+
+async function initPage() {
   ensureSession();
+  await syncFromServer();
   applyDateLimits();
   setupFormHandlers();
   setupSidebarBehavior();
@@ -610,7 +729,7 @@ function startOtpCooldown(totalSeconds = 20) {
   }, 1000);
 }
 
-function sendOTP() {
+async function sendOTP() {
   const phoneInput = byId("phone");
   if (!phoneInput) {
     return;
@@ -625,13 +744,24 @@ function sendOTP() {
     return;
   }
 
-  generatedOtp = String(Math.floor(1000 + Math.random() * 9000));
+  const clinicCode = clinicCodeInput ? clinicCodeInput.value.trim().toUpperCase() : "";
+  localStorage.removeItem(STORAGE_KEYS.SESSION_TOKEN);
+  const response = await apiRequest("/send-otp", {
+    method: "POST",
+    body: JSON.stringify({ phone, clinicCode }),
+    skipAuth: true
+  });
+
+  if (!response.ok) {
+    showMessage("authMessage", response.message, "error");
+    return;
+  }
+
+  generatedOtp = String((response.data && response.data.demoOtp) || "");
   localStorage.setItem(STORAGE_KEYS.GENERATED_OTP, generatedOtp);
   localStorage.setItem(STORAGE_KEYS.PHONE, phone);
   localStorage.setItem(STORAGE_KEYS.OTP_SENT_AT, String(Date.now()));
-  if (clinicCodeInput) {
-    localStorage.setItem(STORAGE_KEYS.CLINIC_CODE, clinicCodeInput.value.trim().toUpperCase());
-  }
+  localStorage.setItem(STORAGE_KEYS.CLINIC_CODE, clinicCode);
 
   const otpBox = byId("otpBox");
   if (otpBox) {
@@ -644,7 +774,7 @@ function sendOTP() {
   }
 
   startOtpCooldown(20);
-  showMessage("authMessage", `OTP sent successfully. Demo OTP: ${generatedOtp}`);
+  showMessage("authMessage", `OTP sent successfully. Demo OTP: ${generatedOtp || "sent"}`);
 }
 
 function resendOTP() {
@@ -667,14 +797,14 @@ function resendOTP() {
   sendOTP();
 }
 
-function verify() {
+async function verify() {
   const otpInput = byId("otp");
   if (!otpInput) {
     return;
   }
 
   const entered = otpInput.value.trim();
-  const expectedOtp = generatedOtp || localStorage.getItem(STORAGE_KEYS.GENERATED_OTP);
+  const phone = localStorage.getItem(STORAGE_KEYS.PHONE) || "";
 
   if (!/^\d{4}$/.test(entered)) {
     showMessage("authMessage", "OTP must be a 4-digit number.", "error");
@@ -682,21 +812,30 @@ function verify() {
     return;
   }
 
-  if (!expectedOtp) {
-    showMessage("authMessage", "No active OTP found. Please request OTP again.", "error");
+  if (!phone) {
+    showMessage("authMessage", "Phone number missing. Please request OTP again.", "error");
     return;
   }
 
-  if (entered === expectedOtp) {
-    localStorage.removeItem(STORAGE_KEYS.GENERATED_OTP);
-    localStorage.removeItem(STORAGE_KEYS.OTP_SENT_AT);
-    window.location.href = "details.html";
-  } else {
-    showMessage("authMessage", "Invalid OTP. Please try again.", "error");
+  const response = await apiRequest("/verify-otp", {
+    method: "POST",
+    body: JSON.stringify({ phone, otp: entered }),
+    skipAuth: true
+  });
+
+  if (!response.ok) {
+    showMessage("authMessage", response.message, "error");
+    return;
   }
+
+  localStorage.removeItem(STORAGE_KEYS.GENERATED_OTP);
+  localStorage.removeItem(STORAGE_KEYS.OTP_SENT_AT);
+  localStorage.setItem(STORAGE_KEYS.SESSION_TOKEN, response.data.sessionToken || "");
+  localStorage.setItem(STORAGE_KEYS.PHONE, response.data.phone || phone);
+  window.location.href = "details.html";
 }
 
-function submitData() {
+async function submitData() {
   const name = byId("name");
   const dob = byId("dob");
   const gender = byId("gender");
@@ -795,6 +934,28 @@ function submitData() {
   localStorage.setItem(STORAGE_KEYS.ADDRESS, addressValue);
   localStorage.setItem(STORAGE_KEYS.EMERGENCY_CONTACT, emergencyValue);
 
+  const response = await apiRequest("/profile", {
+    method: "POST",
+    body: JSON.stringify({
+      phone: phoneValue,
+      clinicCode: localStorage.getItem(STORAGE_KEYS.CLINIC_CODE) || "",
+      name: fullName,
+      dob: dobValue,
+      gender: genderValue,
+      bloodGroup: bloodGroupValue,
+      state: stateValue,
+      city: cityValue,
+      pincode: pincodeValue,
+      address: addressValue,
+      emergencyContact: emergencyValue
+    })
+  });
+
+  if (!response.ok) {
+    showMessage("profileMessage", response.message, "error");
+    return;
+  }
+
   window.location.href = "dashboard.html";
 }
 
@@ -807,8 +968,10 @@ function toggle() {
   side.classList.toggle("open");
 }
 
-function logout() {
+async function logout() {
+  await apiRequest("/logout", { method: "POST" });
   localStorage.removeItem(STORAGE_KEYS.PHONE);
+  localStorage.removeItem(STORAGE_KEYS.SESSION_TOKEN);
   localStorage.removeItem(STORAGE_KEYS.GENERATED_OTP);
   localStorage.removeItem(STORAGE_KEYS.OTP_SENT_AT);
   localStorage.removeItem(STORAGE_KEYS.CLINIC_CODE);
@@ -1408,7 +1571,7 @@ function sendLab() {
   showMessage("newDataMessage", "Patient report flagged for laboratory follow-up.");
 }
 
-function storeReport() {
+async function storeReport() {
   const current = getStoredJSON(STORAGE_KEYS.CURRENT_REPORT, null);
   if (!current) {
     showMessage("newDataMessage", "Please generate a report before storing.", "error");
@@ -1428,8 +1591,19 @@ function storeReport() {
   localStorage.removeItem(STORAGE_KEYS.CURRENT_REPORT);
   localStorage.removeItem(STORAGE_KEYS.DRAFT_REPORT);
 
+  const response = await apiRequest("/reports", {
+    method: "POST",
+    body: JSON.stringify(current)
+  });
+
+  if (!response.ok) {
+    showMessage("newDataMessage", `Report saved locally. Server sync failed: ${response.message}`, "error");
+  }
+
   updateDashboardStats();
-  showMessage("newDataMessage", "Report stored successfully.");
+  if (response.ok) {
+    showMessage("newDataMessage", "Report stored successfully.");
+  }
 }
 
 function formatFileName(name) {
@@ -1776,7 +1950,7 @@ function exportAllReports() {
   showMessage("reportsMessage", "All reports exported.");
 }
 
-function clearReports() {
+async function clearReports() {
   const reports = getStoredJSON(STORAGE_KEYS.REPORTS, []);
   if (reports.length === 0) {
     showMessage("reportsMessage", "No reports to clear.", "error");
@@ -1788,13 +1962,19 @@ function clearReports() {
     return;
   }
 
+  const response = await apiRequest("/reports", { method: "DELETE" });
+  if (!response.ok) {
+    showMessage("reportsMessage", response.message, "error");
+    return;
+  }
+
   localStorage.removeItem(STORAGE_KEYS.REPORTS);
   loadReports();
   updateDashboardStats();
   showMessage("reportsMessage", "All reports cleared.");
 }
 
-function deleteReport(index, id) {
+async function deleteReport(index, id) {
   const reports = getStoredJSON(STORAGE_KEYS.REPORTS, []);
   let targetIndex = Number.isInteger(index) ? index : -1;
 
@@ -1808,6 +1988,19 @@ function deleteReport(index, id) {
 
   const shouldDelete = window.confirm("Delete this report?");
   if (!shouldDelete) {
+    return;
+  }
+
+  const target = reports[targetIndex];
+  const reportId = id || (target && target.id);
+  if (!reportId) {
+    showMessage("reportsMessage", "Report id missing. Cannot delete from server.", "error");
+    return;
+  }
+
+  const response = await apiRequest(`/reports/${encodeURIComponent(reportId)}`, { method: "DELETE" });
+  if (!response.ok) {
+    showMessage("reportsMessage", response.message, "error");
     return;
   }
 
