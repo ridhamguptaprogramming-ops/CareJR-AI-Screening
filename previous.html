@@ -38,6 +38,10 @@
       <p id="summaryUrgent">0</p>
     </article>
     <article class="mini-stat">
+      <h3>Routine Priority</h3>
+      <p id="summaryRoutine">0</p>
+    </article>
+    <article class="mini-stat">
       <h3>Follow-up Due</h3>
       <p id="summaryFollowUpDue">0</p>
     </article>
@@ -46,8 +50,20 @@
       <p id="summaryFollowUpOverdue">0</p>
     </article>
     <article class="mini-stat">
+      <h3>Follow-up Scheduled</h3>
+      <p id="summaryFollowUpScheduled">0</p>
+    </article>
+    <article class="mini-stat">
+      <h3>No Follow-up Plan</h3>
+      <p id="summaryNoFollowUp">0</p>
+    </article>
+    <article class="mini-stat">
       <h3>AI Needs Attention</h3>
       <p id="summaryNeedsAttention">0</p>
+    </article>
+    <article class="mini-stat">
+      <h3>Priority Mismatch</h3>
+      <p id="summaryPriorityMismatch">0</p>
     </article>
     <article class="mini-stat">
       <h3>ICU Cases</h3>
@@ -113,6 +129,15 @@
       <option value="Home Visit">Home Visit</option>
     </select>
 
+    <select id="followUpFilter" aria-label="Follow-up filter" onchange="filterReports()">
+      <option value="all">Follow-up: All</option>
+      <option value="due">Due or Overdue</option>
+      <option value="today">Due Today</option>
+      <option value="overdue">Overdue</option>
+      <option value="scheduled">Scheduled</option>
+      <option value="none">Not Set</option>
+    </select>
+
     <select id="sortReports" aria-label="Sort reports" onchange="filterReports()">
       <option value="newest">Sort: Newest</option>
       <option value="oldest">Sort: Oldest</option>
@@ -129,6 +154,11 @@
     <label class="inline-check" for="comorbidityOnly">
       <input id="comorbidityOnly" type="checkbox" onchange="filterReports()">
       Comorbidity only
+    </label>
+
+    <label class="inline-check" for="priorityMismatchOnly">
+      <input id="priorityMismatchOnly" type="checkbox" onchange="filterReports()">
+      Priority mismatch only
     </label>
   </section>
 

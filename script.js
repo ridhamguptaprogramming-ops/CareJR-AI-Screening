@@ -2093,18 +2093,22 @@ function matchesFilters(report) {
   const searchInput = byId("searchReport");
   const highRiskOnly = byId("highRiskOnly");
   const comorbidityOnly = byId("comorbidityOnly");
+  const priorityMismatchOnly = byId("priorityMismatchOnly");
   const priorityFilter = byId("priorityFilter");
   const triageFilter = byId("triageFilter");
   const admissionFilter = byId("admissionFilter");
   const consultationFilter = byId("consultationFilter");
+  const followUpFilter = byId("followUpFilter");
 
   const search = searchInput ? searchInput.value.trim().toLowerCase() : "";
   const highRisk = highRiskOnly ? highRiskOnly.checked : false;
   const onlyComorbidity = comorbidityOnly ? comorbidityOnly.checked : false;
+  const onlyPriorityMismatch = priorityMismatchOnly ? priorityMismatchOnly.checked : false;
   const prioritySelected = priorityFilter ? priorityFilter.value : "all";
   const triageSelected = triageFilter ? triageFilter.value : "all";
   const admissionSelected = admissionFilter ? admissionFilter.value : "all";
   const consultationSelected = consultationFilter ? consultationFilter.value : "all";
+  const followUpSelected = followUpFilter ? followUpFilter.value : "all";
 
   const patient = String(getReportField(report, ["patientName", "name"], "")).toLowerCase();
   const complaint = String(getReportField(report, ["chiefComplaint"], "")).toLowerCase();
@@ -2121,8 +2125,9 @@ function matchesFilters(report) {
   const admission = String(getReportField(report, ["admissionStatus"], "Not Admitted")).toLowerCase();
   const disposition = String(getReportField(report, ["disposition"], "Home Care")).toLowerCase();
   const consultationType = String(getReportField(report, ["consultationType"], "In-person")).toLowerCase();
-  const priority = String(getReportField(report, ["priority"], "")).toLowerCase();
-  const triage = String(getReportField(report, ["triageRecommendation", "priority"], "")).toLowerCase();
+  const priority = String(getPriorityFromReport(report)).toLowerCase();
+  const triage = String(getTriageFromReport(report)).toLowerCase();
+  const followUpStatus = getFollowUpStatus(report).toLowerCase();
   const notes = String(getReportField(report, ["clinicalNotes"], "")).toLowerCase();
   const risk = Number(getReportField(report, ["risk"], 0)) || 0;
 
@@ -2134,11 +2139,15 @@ function matchesFilters(report) {
     return false;
   }
 
-  if (prioritySelected !== "all" && getReportField(report, ["priority"], "") !== prioritySelected) {
+  if (onlyPriorityMismatch && !hasPriorityMismatch(report)) {
     return false;
   }
 
-  if (triageSelected !== "all" && getReportField(report, ["triageRecommendation", "priority"], "") !== triageSelected) {
+  if (prioritySelected !== "all" && getPriorityFromReport(report) !== prioritySelected) {
+    return false;
+  }
+
+  if (triageSelected !== "all" && getTriageFromReport(report) !== triageSelected) {
     return false;
   }
 
@@ -2150,8 +2159,28 @@ function matchesFilters(report) {
     return false;
   }
 
+  if (followUpSelected === "due" && !["due today", "overdue"].includes(followUpStatus)) {
+    return false;
+  }
+
+  if (followUpSelected === "today" && followUpStatus !== "due today") {
+    return false;
+  }
+
+  if (followUpSelected === "overdue" && followUpStatus !== "overdue") {
+    return false;
+  }
+
+  if (followUpSelected === "scheduled" && followUpStatus !== "scheduled") {
+    return false;
+  }
+
+  if (followUpSelected === "none" && followUpStatus !== "not set") {
+    return false;
+  }
+
   if (search) {
-    const haystack = `${patient} ${complaint} ${complaintDuration} ${painLocation} ${symptoms} ${diagnosis} ${doctor} ${tests} ${pain} ${adherence} ${oxygen} ${comorbidities} ${admission} ${disposition} ${consultationType} ${priority} ${triage} ${notes}`;
+    const haystack = `${patient} ${complaint} ${complaintDuration} ${painLocation} ${symptoms} ${diagnosis} ${doctor} ${tests} ${pain} ${adherence} ${oxygen} ${comorbidities} ${admission} ${disposition} ${consultationType} ${priority} ${triage} ${followUpStatus} ${notes}`;
     if (!haystack.includes(search)) {
       return false;
     }
@@ -2183,15 +2212,71 @@ function parseReportRisk(report) {
   return Number(getReportField(report, ["risk"], 0)) || 0;
 }
 
+const PRIORITY_WEIGHT = {
+  Emergency: 3,
+  Urgent: 2,
+  Routine: 1
+};
+
+function normalizePriority(value) {
+  const priority = String(value || "").trim();
+  if (priority === "Emergency" || priority === "Urgent" || priority === "Routine") {
+    return priority;
+  }
+  return "Routine";
+}
+
+function getPriorityWeight(value) {
+  return PRIORITY_WEIGHT[normalizePriority(value)] || PRIORITY_WEIGHT.Routine;
+}
+
+function getPriorityFromReport(report) {
+  return normalizePriority(getReportField(report, ["priority"], "Routine"));
+}
+
+function getTriageFromReport(report) {
+  return normalizePriority(getReportField(report, ["triageRecommendation", "priority"], "Routine"));
+}
+
+function hasPriorityMismatch(report) {
+  return getPriorityWeight(getPriorityFromReport(report)) < getPriorityWeight(getTriageFromReport(report));
+}
+
+function getTodayIsoDate() {
+  return new Date().toISOString().split("T")[0];
+}
+
+function getFollowUpStatus(report, today = getTodayIsoDate()) {
+  const followUp = String(getReportField(report, ["followUpDate"], "")).trim();
+  if (!followUp) {
+    return "Not Set";
+  }
+  if (followUp < today) {
+    return "Overdue";
+  }
+  if (followUp === today) {
+    return "Due Today";
+  }
+  return "Scheduled";
+}
+
+function followUpBadgeClass(status) {
+  if (status === "Overdue") {
+    return "followup-overdue";
+  }
+  if (status === "Due Today") {
+    return "followup-due";
+  }
+  if (status === "Scheduled") {
+    return "followup-scheduled";
+  }
+  return "followup-none";
+}
+
 function sortReportEntries(entries) {
   const sortSelect = byId("sortReports");
   const sortMode = sortSelect ? sortSelect.value : "newest";
   const list = entries.slice();
-  const priorityWeight = {
-    Emergency: 3,
-    Urgent: 2,
-    Routine: 1
-  };
 
   if (sortMode === "oldest") {
     list.sort((a, b) => parseReportDate(a.report) - parseReportDate(b.report));
@@ -2201,9 +2286,9 @@ function sortReportEntries(entries) {
     list.sort((a, b) => parseReportRisk(a.report) - parseReportRisk(b.report));
   } else if (sortMode === "priority") {
     list.sort((a, b) => {
-      const aPriority = getReportField(a.report, ["priority"], "Routine");
-      const bPriority = getReportField(b.report, ["priority"], "Routine");
-      return (priorityWeight[bPriority] || 0) - (priorityWeight[aPriority] || 0);
+      const aPriority = getPriorityFromReport(a.report);
+      const bPriority = getPriorityFromReport(b.report);
+      return getPriorityWeight(bPriority) - getPriorityWeight(aPriority);
     });
   } else {
     list.sort((a, b) => parseReportDate(b.report) - parseReportDate(a.report));
@@ -2217,29 +2302,38 @@ function updatePreviousSummary(filteredEntries, totalStored) {
   const visibleRisks = filteredEntries.map((entry) => parseReportRisk(entry.report));
   const critical = visibleRisks.filter((risk) => risk >= 80).length;
   const emergencyPriority = filteredEntries.filter(
-    (entry) => getReportField(entry.report, ["priority"], "Routine") === "Emergency"
+    (entry) => getPriorityFromReport(entry.report) === "Emergency"
   ).length;
   const urgentPriority = filteredEntries.filter(
-    (entry) => getReportField(entry.report, ["priority"], "Routine") === "Urgent"
+    (entry) => getPriorityFromReport(entry.report) === "Urgent"
+  ).length;
+  const routinePriority = filteredEntries.filter(
+    (entry) => getPriorityFromReport(entry.report) === "Routine"
   ).length;
   const needsAttention = filteredEntries.filter((entry) => {
-    const triage = getReportField(entry.report, ["triageRecommendation", "priority"], "Routine");
+    const triage = getTriageFromReport(entry.report);
     return triage === "Urgent" || triage === "Emergency";
   }).length;
+  const priorityMismatch = filteredEntries.filter((entry) => hasPriorityMismatch(entry.report)).length;
   const icuCases = filteredEntries.filter(
     (entry) => getReportField(entry.report, ["admissionStatus"], "Not Admitted") === "ICU"
   ).length;
   const comorbidityCases = filteredEntries.filter(
     (entry) => String(getReportField(entry.report, ["comorbidities"], "")).trim() !== ""
   ).length;
-  const today = new Date().toISOString().split("T")[0];
+  const today = getTodayIsoDate();
   const followUpDue = filteredEntries.filter((entry) => {
-    const followUp = getReportField(entry.report, ["followUpDate"], "");
-    return followUp && followUp <= today;
+    const status = getFollowUpStatus(entry.report, today);
+    return status === "Due Today" || status === "Overdue";
   }).length;
   const followUpOverdue = filteredEntries.filter((entry) => {
-    const followUp = getReportField(entry.report, ["followUpDate"], "");
-    return followUp && followUp < today;
+    return getFollowUpStatus(entry.report, today) === "Overdue";
+  }).length;
+  const followUpScheduled = filteredEntries.filter((entry) => {
+    return getFollowUpStatus(entry.report, today) === "Scheduled";
+  }).length;
+  const noFollowUp = filteredEntries.filter((entry) => {
+    return getFollowUpStatus(entry.report, today) === "Not Set";
   }).length;
   const painValues = filteredEntries
     .map((entry) => String(getReportField(entry.report, ["painScore"], "")).trim())
@@ -2265,9 +2359,13 @@ function updatePreviousSummary(filteredEntries, totalStored) {
   const summaryCritical = byId("summaryCritical");
   const summaryEmergency = byId("summaryEmergency");
   const summaryUrgent = byId("summaryUrgent");
+  const summaryRoutine = byId("summaryRoutine");
   const summaryFollowUpDue = byId("summaryFollowUpDue");
   const summaryFollowUpOverdue = byId("summaryFollowUpOverdue");
+  const summaryFollowUpScheduled = byId("summaryFollowUpScheduled");
+  const summaryNoFollowUp = byId("summaryNoFollowUp");
   const summaryNeedsAttention = byId("summaryNeedsAttention");
+  const summaryPriorityMismatch = byId("summaryPriorityMismatch");
   const summaryICU = byId("summaryICU");
   const summaryHighPain = byId("summaryHighPain");
   const summaryIcuTransfer = byId("summaryIcuTransfer");
@@ -2290,14 +2388,26 @@ function updatePreviousSummary(filteredEntries, totalStored) {
   if (summaryUrgent) {
     summaryUrgent.textContent = String(urgentPriority);
   }
+  if (summaryRoutine) {
+    summaryRoutine.textContent = String(routinePriority);
+  }
   if (summaryFollowUpDue) {
     summaryFollowUpDue.textContent = String(followUpDue);
   }
   if (summaryFollowUpOverdue) {
     summaryFollowUpOverdue.textContent = String(followUpOverdue);
   }
+  if (summaryFollowUpScheduled) {
+    summaryFollowUpScheduled.textContent = String(followUpScheduled);
+  }
+  if (summaryNoFollowUp) {
+    summaryNoFollowUp.textContent = String(noFollowUp);
+  }
   if (summaryNeedsAttention) {
     summaryNeedsAttention.textContent = String(needsAttention);
+  }
+  if (summaryPriorityMismatch) {
+    summaryPriorityMismatch.textContent = String(priorityMismatch);
   }
   if (summaryICU) {
     summaryICU.textContent = String(icuCases);
