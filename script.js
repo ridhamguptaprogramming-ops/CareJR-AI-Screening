@@ -2463,7 +2463,7 @@ function loadReports() {
     const patientAge = getReportField(report, ["patientAge"], "-");
     const date = getReportField(report, ["visitDate", "date"]);
     const followUpDate = getReportField(report, ["followUpDate"], "-");
-    const priority = getReportField(report, ["priority"], "Routine");
+    const priority = getPriorityFromReport(report);
     const admissionStatus = getReportField(report, ["admissionStatus"], "Not Admitted");
     const disposition = getReportField(report, ["disposition"], "Home Care");
     const consultationType = getReportField(report, ["consultationType"], "In-person");
@@ -2493,7 +2493,9 @@ function loadReports() {
     const carePlan = getReportField(report, ["carePlan"], "-");
     const risk = parseReportRisk(report);
     const riskLevel = getReportField(report, ["riskLevel"], getRiskLevel(risk));
-    const triageRecommendation = getReportField(report, ["triageRecommendation", "priority"], "Routine");
+    const triageRecommendation = getTriageFromReport(report);
+    const followUpStatus = getFollowUpStatus(report);
+    const priorityMismatch = hasPriorityMismatch(report);
     const doctor = getReportField(report, ["doctor"]);
     const notes = getReportField(report, ["clinicalNotes"], "-");
     const reportId = getReportField(report, ["id"], "");
@@ -2506,6 +2508,7 @@ function loadReports() {
       <p><strong>Age:</strong> ${safeText(patientAge)}</p>
       <p><strong>Date:</strong> ${safeText(date)}</p>
       <p><strong>Follow-up:</strong> ${safeText(followUpDate)}</p>
+      <p><strong>Follow-up Status:</strong> <span class="followup-badge ${followUpBadgeClass(followUpStatus)}">${safeText(followUpStatus)}</span></p>
       <p><strong>Priority:</strong> ${safeText(priority)}</p>
       <p><strong>Admission:</strong> ${safeText(admissionStatus)}</p>
       <p><strong>Disposition:</strong> ${safeText(disposition)}</p>
@@ -2526,6 +2529,7 @@ function loadReports() {
       <p><strong>Care Plan:</strong> ${safeText(carePlan)}</p>
       <p><strong>Risk:</strong> <span class="risk-badge ${riskBadgeClass(risk)}">${safeText(risk)}% (${safeText(riskLevel)})</span></p>
       <p><strong>AI Triage:</strong> ${safeText(triageRecommendation)}</p>
+      <p><strong>Priority Match:</strong> <span class="mismatch-badge ${priorityMismatch ? "mismatch-yes" : "mismatch-no"}">${priorityMismatch ? `Mismatch (AI: ${safeText(triageRecommendation)})` : "Aligned"}</span></p>
       <p><strong>Doctor:</strong> ${safeText(doctor)}</p>
       <p><strong>Notes:</strong> ${safeText(notes)}</p>
       <div class="report-actions">
