@@ -62,8 +62,11 @@
 - Follow-up Due
 - Follow-up Today
 - Follow-up Overdue
+- Follow-up Scheduled
+- No Follow-up Plan
 - AI Needs Attention
 - AI Emergency Flag
+- Priority Mismatch (selected priority lower than AI triage)
 - Admitted / Observed
 - High Pain Cases
 - Tele-consults
@@ -124,13 +127,19 @@
 - Added triage filter with routine/urgent/emergency options.
 - Added admission filter with not-admitted/observation/admitted/ICU options.
 - Added consultation filter (all / in-person / tele-consult / home visit).
+- Added follow-up filter (`followUpFilter`) with due/overdue/scheduled/not-set options.
+- Added priority mismatch toggle (`priorityMismatchOnly`) to isolate mismatch cases.
 
 ### Added new summary counters
 - Emergency priority count (`summaryEmergency`)
 - Urgent priority count (`summaryUrgent`)
+- Routine priority count (`summaryRoutine`)
 - Follow-up due count (`summaryFollowUpDue`)
 - Follow-up overdue count (`summaryFollowUpOverdue`)
+- Follow-up scheduled count (`summaryFollowUpScheduled`)
+- No follow-up count (`summaryNoFollowUp`)
 - AI needs-attention count (`summaryNeedsAttention`)
+- Priority mismatch count (`summaryPriorityMismatch`)
 - ICU cases (`summaryICU`)
 - High pain count (`summaryHighPain`)
 - ICU transfer count (`summaryIcuTransfer`)
@@ -140,6 +149,8 @@
 
 ### Listing improvements
 - Each report card now shows complaint, allergies, vitals, diagnosis, and care plan.
+- Added follow-up status badges (Overdue/Due Today/Scheduled/Not Set).
+- Added priority match badge showing aligned vs AI-priority mismatch.
 
 ## 6. JavaScript Architecture Updates (`script.js`)
 ### New storage keys

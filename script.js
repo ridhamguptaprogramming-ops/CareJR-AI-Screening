@@ -2640,30 +2640,36 @@ function updateDashboardStats() {
   const average = total > 0
     ? Math.round(reports.reduce((sum, report) => sum + parseReportRisk(report), 0) / total)
     : 0;
-  const today = new Date().toISOString().split("T")[0];
-  const routineCount = reports.filter((report) => getReportField(report, ["priority"], "Routine") === "Routine").length;
-  const urgentCount = reports.filter((report) => getReportField(report, ["priority"], "Routine") === "Urgent").length;
-  const emergencyCount = reports.filter((report) => getReportField(report, ["priority"], "Routine") === "Emergency").length;
+  const today = getTodayIsoDate();
+  const routineCount = reports.filter((report) => getPriorityFromReport(report) === "Routine").length;
+  const urgentCount = reports.filter((report) => getPriorityFromReport(report) === "Urgent").length;
+  const emergencyCount = reports.filter((report) => getPriorityFromReport(report) === "Emergency").length;
   const triageEmergencyCount = reports.filter(
-    (report) => getReportField(report, ["triageRecommendation", "priority"], "Routine") === "Emergency"
+    (report) => getTriageFromReport(report) === "Emergency"
   ).length;
   const needsAttentionCount = reports.filter((report) => {
-    const triage = getReportField(report, ["triageRecommendation", "priority"], "Routine");
+    const triage = getTriageFromReport(report);
     return triage === "Urgent" || triage === "Emergency";
   }).length;
+  const priorityMismatchCount = reports.filter((report) => hasPriorityMismatch(report)).length;
   const reportsToday = reports.filter(
     (report) => getReportField(report, ["visitDate", "date"], "") === today
   ).length;
   const followUpDue = reports.filter((report) => {
-    const followUp = getReportField(report, ["followUpDate"], "");
-    return followUp && followUp <= today;
+    const status = getFollowUpStatus(report, today);
+    return status === "Due Today" || status === "Overdue";
   }).length;
   const followUpToday = reports.filter(
-    (report) => getReportField(report, ["followUpDate"], "") === today
+    (report) => getFollowUpStatus(report, today) === "Due Today"
   ).length;
   const followUpOverdue = reports.filter((report) => {
-    const followUp = getReportField(report, ["followUpDate"], "");
-    return followUp && followUp < today;
+    return getFollowUpStatus(report, today) === "Overdue";
+  }).length;
+  const followUpScheduled = reports.filter((report) => {
+    return getFollowUpStatus(report, today) === "Scheduled";
+  }).length;
+  const noFollowUp = reports.filter((report) => {
+    return getFollowUpStatus(report, today) === "Not Set";
   }).length;
   const admittedCases = reports.filter((report) => {
     const admissionStatus = getReportField(report, ["admissionStatus"], "Not Admitted");
@@ -2719,8 +2725,11 @@ function updateDashboardStats() {
   const statFollowUpDue = byId("statFollowUpDue");
   const statFollowUpToday = byId("statFollowUpToday");
   const statFollowUpOverdue = byId("statFollowUpOverdue");
+  const statFollowUpScheduled = byId("statFollowUpScheduled");
+  const statNoFollowUp = byId("statNoFollowUp");
   const statNeedsAttention = byId("statNeedsAttention");
   const statTriageEmergency = byId("statTriageEmergency");
+  const statPriorityMismatch = byId("statPriorityMismatch");
   const statAdmittedCases = byId("statAdmittedCases");
   const statIcuCases = byId("statIcuCases");
   const statComorbidityCases = byId("statComorbidityCases");
@@ -2782,12 +2791,24 @@ function updateDashboardStats() {
     statFollowUpOverdue.innerText = String(followUpOverdue);
   }
 
+  if (statFollowUpScheduled) {
+    statFollowUpScheduled.innerText = String(followUpScheduled);
+  }
+
+  if (statNoFollowUp) {
+    statNoFollowUp.innerText = String(noFollowUp);
+  }
+
   if (statNeedsAttention) {
     statNeedsAttention.innerText = String(needsAttentionCount);
   }
 
   if (statTriageEmergency) {
     statTriageEmergency.innerText = String(triageEmergencyCount);
+  }
+
+  if (statPriorityMismatch) {
+    statPriorityMismatch.innerText = String(priorityMismatchCount);
   }
 
   if (statAdmittedCases) {

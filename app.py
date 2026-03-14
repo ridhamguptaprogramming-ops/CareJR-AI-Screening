@@ -621,27 +621,45 @@ def report_stats():
         except Exception:
             return 0.0
 
+    def normalize_priority(value: Any) -> str:
+        priority = str(value or "").strip()
+        if priority in {"Routine", "Urgent", "Emergency"}:
+            return priority
+        return "Routine"
+
+    def priority_weight(value: Any) -> int:
+        return {"Routine": 1, "Urgent": 2, "Emergency": 3}.get(normalize_priority(value), 1)
+
+    def triage_value(report: Dict[str, Any]) -> str:
+        return normalize_priority(report.get("triageRecommendation") or report.get("priority", "Routine"))
+
+    def has_priority_mismatch(report: Dict[str, Any]) -> bool:
+        return priority_weight(report.get("priority", "Routine")) < priority_weight(triage_value(report))
+
     total = len(reports)
     high_risk = sum(1 for report in reports if risk_value(report) >= 70)
     critical = sum(1 for report in reports if risk_value(report) >= 80)
-    routine = sum(1 for report in reports if str(report.get("priority", "Routine")) == "Routine")
-    urgent = sum(1 for report in reports if str(report.get("priority", "Routine")) == "Urgent")
-    emergency = sum(1 for report in reports if str(report.get("priority", "Routine")) == "Emergency")
+    routine = sum(1 for report in reports if normalize_priority(report.get("priority", "Routine")) == "Routine")
+    urgent = sum(1 for report in reports if normalize_priority(report.get("priority", "Routine")) == "Urgent")
+    emergency = sum(1 for report in reports if normalize_priority(report.get("priority", "Routine")) == "Emergency")
     triage_emergency = sum(
         1
         for report in reports
-        if str(report.get("triageRecommendation") or report.get("priority", "Routine")) == "Emergency"
+        if triage_value(report) == "Emergency"
     )
     triage_needs_attention = sum(
         1
         for report in reports
-        if str(report.get("triageRecommendation") or report.get("priority", "Routine")) in {"Urgent", "Emergency"}
+        if triage_value(report) in {"Urgent", "Emergency"}
     )
     follow_up_due = sum(
         1 for report in reports if str(report.get("followUpDate", "")).strip() and str(report.get("followUpDate")) <= today
     )
     follow_up_today = sum(1 for report in reports if str(report.get("followUpDate", "")).strip() == today)
     follow_up_overdue = sum(1 for report in reports if str(report.get("followUpDate", "")).strip() and str(report.get("followUpDate")) < today)
+    follow_up_scheduled = sum(1 for report in reports if str(report.get("followUpDate", "")).strip() and str(report.get("followUpDate")) > today)
+    no_follow_up = sum(1 for report in reports if not str(report.get("followUpDate", "")).strip())
+    priority_mismatch = sum(1 for report in reports if has_priority_mismatch(report))
     admitted_cases = sum(
         1
         for report in reports
@@ -695,12 +713,15 @@ def report_stats():
                 "followUpDue": follow_up_due,
                 "followUpToday": follow_up_today,
                 "followUpOverdue": follow_up_overdue,
+                "followUpScheduled": follow_up_scheduled,
+                "noFollowUp": no_follow_up,
                 "admittedCases": admitted_cases,
                 "icuCases": icu_cases,
                 "comorbidityCases": comorbidity_cases,
                 "highPainCases": high_pain_cases,
                 "teleConsultCases": tele_consult_cases,
                 "icuTransferCases": icu_transfer_cases,
+                "priorityMismatch": priority_mismatch,
                 "averagePain": average_pain,
                 "averageRisk": average_risk,
             },
